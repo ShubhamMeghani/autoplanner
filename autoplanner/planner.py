@@ -236,6 +236,21 @@ class PlannerService:
     def replan(self) -> PlanView:
         return self.change(lambda s, now: replace(s, meta={**s.meta, "input_hash": None}))
 
+    def mark_done(self, block_id: str, actual_minutes: int | None = None) -> PlanView:
+        return self.change(lambda s, now: mark_done(s, now, block_id, actual_minutes))
+
+    def mark_not_done(self, block_id: str, minutes_completed: int = 0) -> PlanView:
+        return self.change(lambda s, now: mark_not_done(s, now, block_id, minutes_completed))
+
+    def complete_task(self, task_id: str, actual_hours: float, confirm_unconfirmed: bool = False) -> PlanView:
+        return self.change(lambda s, now: complete_task(s, now, task_id, actual_hours, confirm_unconfirmed))
+
+    def extend_deadline(self, task_id: str, new_deadline: datetime) -> PlanView:
+        return self.change(lambda s, now: extend_deadline(s, now, task_id, new_deadline))
+
+    def cut_hours(self, cuts: dict[str, int]) -> PlanView:
+        return self.change(lambda s, now: cut_hours(s, now, cuts))
+
     def _commit(self, old: PlannerState, new: PlannerState, now: datetime) -> PlanView:
         problem = build_problem(now, new.prefs, new.events, new.tasks, new.blocks)
         version = int(old.meta.get("plan_version", 0)) + 1
@@ -246,3 +261,72 @@ class PlannerService:
                         meta=plan_meta(outcome, input_hash(new), version, now))
         save_changes(self.repo, self.planner_id, old, final)
         return PlanView(final, now, horizon_end(now, final.prefs.horizon_days))
+
+
+# ---------- feedback and fixes: pure state changes (R23-R26, R32, R33, R36) ----------
+
+def _swap_block(state: PlannerState, block: Block) -> PlannerState:
+    return replace(state, blocks=[block if b.id == block.id else b for b in state.blocks])
+
+
+def _swap_task(state: PlannerState, task: Task) -> PlannerState:
+    return replace(state, tasks=[task if t.id == task.id else t for t in state.tasks])
+
+
+def mark_done(state: PlannerState, now: datetime, block_id: str, actual_minutes: int | None = None) -> PlannerState:
+    """R24: a started block is done, with the actual minutes (default: its planned length)."""
+    block = state.block(block_id)
+    if block is None or block.start > now:
+        raise ValueError("only a block that has started can be marked done")
+    minutes = block.minutes if actual_minutes is None else max(0, int(actual_minutes))
+    return _swap_block(state, replace(block, status="done", actual_minutes=minutes))
+
+
+def mark_not_done(state: PlannerState, now: datetime, block_id: str, minutes_completed: int = 0) -> PlannerState:
+    """R23 / R28: a started block didn't happen; its unfinished minutes return to the task."""
+    block = state.block(block_id)
+    if block is None or block.start > now:
+        raise ValueError("only a block that has started can be marked not done")
+    done = min(max(0, int(minutes_completed)), block.minutes)
+    return _swap_block(state, replace(block, status="not_done", actual_minutes=done))
+
+
+def complete_task(state: PlannerState, now: datetime, task_id: str, actual_hours: float,
+                  confirm_unconfirmed: bool = False) -> PlannerState:
+    """R26 / R36: store the task as completed. With confirm_unconfirmed, its unconfirmed past
+    blocks become done first; learning uses the task only if none stays unconfirmed (D-1)."""
+    from autoplanner.learning import learning_eligible
+
+    if confirm_unconfirmed:
+        state = replace(state, blocks=[
+            replace(b, status="done", actual_minutes=b.minutes)
+            if b.task_id == task_id and b.status == "planned" and b.start < now else b
+            for b in state.blocks])
+    task = state.task(task_id)
+    done = replace(task, status="completed", actual_hours=round(max(0.0, actual_hours), 2), completed_at=now,
+                   learning_eligible=learning_eligible(task_id, state.blocks, now))
+    return _swap_task(state, done)
+
+
+def extend_deadline(state: PlannerState, now: datetime, task_id: str, new_deadline: datetime) -> PlannerState:
+    """R32 / R33: a new deadline; an overdue task becomes open again."""
+    if new_deadline <= now:
+        raise ValueError("the new deadline must be in the future")
+    task = state.task(task_id)
+    return _swap_task(state, replace(task, deadline=new_deadline, status="open"))
+
+
+def cut_hours(state: PlannerState, now: datetime, cuts: dict[str, int]) -> PlannerState:
+    """R32: reduce estimates by the given minutes. A task cut to nothing is closed as completed
+    (with no learning data), since there is no work left to plan."""
+    for task_id, minutes in cuts.items():
+        task = state.task(task_id)
+        if task is None:
+            continue
+        new_hours = round(task.est_hours - minutes / 60, 1)
+        if new_hours <= 0:
+            task = replace(task, status="completed", actual_hours=0.0, learning_eligible=False, completed_at=now)
+        else:
+            task = replace(task, est_hours=new_hours)
+        state = _swap_task(state, task)
+    return state

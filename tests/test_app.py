@@ -158,3 +158,18 @@ def test_storage_error_keeps_the_previous_state_ac47(monkeypatch):
     assert "Traceback" not in text and not app.exception
     after = repo.load(DEMO_PLANNER_ID)
     assert after.tasks == before.tasks and after.blocks == before.blocks and after.meta == before.meta
+
+
+def test_selecting_a_started_block_offers_done_and_not_done_ac45():
+    app = demo_app()
+    repo = app.session_state["demo_repo"]
+    version = repo.load(DEMO_PLANNER_ID).meta["plan_version"]
+    started = next(b for b in repo.load(DEMO_PLANNER_ID).blocks if b.id == "demo-b4")  # unconfirmed, yesterday
+    app.selectbox(key="selected_block").set_value(started.id).run()
+    labels = [b.label for b in app.button]
+    assert "Done" in labels and "Not done" in labels
+    app.button(key=f"notdone_{started.id}").click().run()
+    assert not app.exception
+    state = repo.load(DEMO_PLANNER_ID)
+    assert state.block(started.id).status == "not_done"
+    assert state.meta["plan_version"] == version + 1

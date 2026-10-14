@@ -37,3 +37,56 @@ def test_remaining_work_counts_done_unconfirmed_and_partial_blocks():
         Block(task.id, at(1, 9, 0), at(1, 10, 0), status="planned"),  # future: counts nothing
     ]
     assert remaining_minutes(task, blocks, NOW) == 300 - 75 - 60
+
+
+# ---------- feedback (AC-9 logic, AC-45) ----------
+
+from autoplanner.demo import DEMO_PLANNER_ID, demo_repo  # noqa: E402
+from autoplanner.planner import PlannerService, mark_done  # noqa: E402
+from autoplanner.timegrid import ceil_to_slot  # noqa: E402
+from autoplanner.ui.calendar_view import block_label  # noqa: E402
+from autoplanner.validate import validate  # noqa: E402
+
+
+def test_not_done_returns_work_and_replans_from_now_ac9():
+    service = PlannerService(demo_repo(NOW), DEMO_PLANNER_ID, clock=lambda: NOW)
+    view = service.view()
+    started = [b for b in view.state.blocks if b.start <= NOW and b.status in ("planned", "done")]
+    assert len(started) >= 5
+    for block in started[:5]:
+        task = view.state.task(block.task_id)
+        before_remaining = view.remaining_min(task)
+        frozen = {b.id: b for b in view.state.blocks if b.start < NOW and b.id != block.id}
+        view = service.mark_not_done(block.id)
+        counted = block.actual_minutes if block.status == "done" and block.actual_minutes is not None else block.minutes
+        assert view.remaining_min(view.state.task(task.id)) == before_remaining + counted
+        assert {b.id: b for b in view.state.blocks if b.id in frozen} == frozen  # past and done unchanged
+        assert all(b.start >= ceil_to_slot(NOW) for b in view.future_blocks)
+        assert view.meta["kind"] == "optimizer"
+        problem = build_problem(NOW, view.state.prefs, view.state.events, view.state.tasks, view.state.blocks)
+        assert validate(problem, view.future_blocks, "optimizer").ok  # the validator passes
+
+
+def test_done_stores_actual_minutes_and_clears_the_badge_ac45():
+    task = make_task("A", 3, at(2, 23, 59))
+    past = Block(task.id, at(0, 8), at(0, 9))
+    other = Block(task.id, at(-1, 20), at(-1, 21))
+    from autoplanner.models import PlannerState
+    state = PlannerState(Preferences(), tasks=[task], blocks=[past, other])
+    assert block_label(past, task, NOW).startswith("⏳")
+    state = mark_done(state, NOW, past.id, 75)
+    done = state.block(past.id)
+    assert (done.status, done.confirmed, done.actual_minutes) == ("done", True, 75)
+    assert not block_label(done, task, NOW).startswith("⏳")
+    state = mark_done(state, NOW, other.id)
+    assert state.block(other.id).actual_minutes == 60
+
+
+def test_future_blocks_cannot_be_marked():
+    import pytest
+    task = make_task("A", 3, at(2, 23, 59))
+    future = Block(task.id, at(1, 9), at(1, 10))
+    from autoplanner.models import PlannerState
+    state = PlannerState(Preferences(), tasks=[task], blocks=[future])
+    with pytest.raises(ValueError):
+        mark_done(state, NOW, future.id)

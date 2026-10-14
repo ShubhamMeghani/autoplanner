@@ -200,3 +200,53 @@ def render(view: PlanView, service: PlannerService) -> None:
     add_event_section(service)
     events_section(view, service)
 
+
+
+# ---------- prompts shown on the Plan tab (R26, R33) ----------
+
+def completion_prompts(view: PlanView, service: PlannerService) -> None:
+    """R26: a task with no work left: confirm, with the actual time."""
+    from autoplanner.learning import confirmed_minutes
+
+    for task in view.ready_to_complete():
+        unconfirmed = [b for b in view.state.blocks
+                       if b.task_id == task.id and b.status == "planned" and b.start < view.now]
+        with st.expander(f"“{task.title}” has no work left. Mark complete?", expanded=True):
+            confirm = False
+            if unconfirmed:
+                st.caption("Not yet confirmed: " + ", ".join(f"{fmt_dt(b.start)}–{b.end:%H:%M}" for b in unconfirmed))
+                confirm = st.checkbox("Confirm these as done", key=f"confirm_{task.id}")
+            minutes = confirmed_minutes(task.id, view.state.blocks)
+            if confirm:
+                minutes += sum(b.minutes for b in unconfirmed)
+            actual = st.number_input("Actual total (hours)", min_value=0.0, max_value=200.0, step=0.25,
+                                     value=round(minutes / 60, 2), key=f"actual_total_{task.id}_{confirm}")
+            if unconfirmed and not confirm:
+                st.caption("While blocks stay unconfirmed, this task won't be used to learn your estimates.")
+            if st.button("Mark complete", type="primary", key=f"complete_{task.id}"):
+                if run_action(lambda t=task, a=actual, c=confirm: service.complete_task(t.id, a, c),
+                              f"“{task.title}” completed."):
+                    st.rerun()
+
+
+def overdue_panel(view: PlanView, service: PlannerService) -> None:
+    """R33: past the deadline with work left: extend, or mark complete."""
+    from autoplanner.learning import confirmed_minutes
+
+    for task in [t for t in view.state.tasks if t.status == "overdue"]:
+        with st.expander(f"Overdue: “{task.title}” (was due {fmt_dt(task.deadline)})", expanded=True):
+            left, mid, right = st.columns(3)
+            new_date = left.date_input("New deadline", value=view.now.date() + timedelta(days=1),
+                                       key=f"od_date_{task.id}")
+            new_time = mid.time_input("Time", value=time(23, 59), step=60, key=f"od_time_{task.id}")
+            if right.button("Extend deadline", key=f"od_extend_{task.id}"):
+                deadline = datetime.combine(new_date, new_time, TZ)
+                if deadline <= service.now():
+                    st.error("The new deadline must be in the future.")
+                elif run_action(lambda t=task, d=deadline: service.extend_deadline(t.id, d),
+                                "Deadline extended and the week replanned."):
+                    st.rerun()
+            if right.button("Mark complete", key=f"od_complete_{task.id}"):
+                hours = confirmed_minutes(task.id, view.state.blocks) / 60
+                if run_action(lambda t=task, h=hours: service.complete_task(t.id, h), f"“{task.title}” completed."):
+                    st.rerun()

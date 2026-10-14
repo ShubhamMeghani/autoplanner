@@ -127,3 +127,69 @@ def render(view: PlanView) -> str | None:
     selected = st.selectbox("Select a block (or click one in the calendar)", ids,
                             format_func=lambda i: "—" if i is None else labels[i], key="selected_block")
     return selected
+
+
+# ---------- block actions and the infeasibility report (R23, R24, R29-R32) ----------
+
+def block_actions(view: PlanView, service, block_id: str) -> None:
+    from autoplanner.ui import fmt_dt, run_action
+
+    block = view.state.block(block_id)
+    task = view.state.task(block.task_id) if block else None
+    if not block or not task:
+        return
+    status = {"planned": "planned", "done": "done", "not_done": "not done"}.get(block.status, block.status)
+    if block.status == "planned" and block.start < view.now:
+        status = "unconfirmed"
+    st.markdown(f"**{task.title}** · {fmt_dt(block.start)}–{block.end:%H:%M} · {status}")
+    if block.start > view.now:
+        st.caption("You can mark this block once it has started.")
+        return
+    left, right = st.columns(2)
+    with left:
+        minutes = st.number_input("Actual minutes", min_value=0, max_value=600, step=5,
+                                  value=block.actual_minutes if block.actual_minutes is not None else block.minutes,
+                                  key=f"actual_{block.id}")
+        if st.button("Done", type="primary", key=f"done_{block.id}"):
+            if run_action(lambda: service.mark_done(block.id, int(minutes)), "Marked done."):
+                st.rerun()
+    with right:
+        st.write("")
+        if st.button("Not done", key=f"notdone_{block.id}"):
+            if run_action(lambda: service.mark_not_done(block.id), "Marked not done; the rest of the week was replanned."):
+                st.rerun()
+
+
+def diagnosis_banner(view: PlanView, service) -> None:
+    from autoplanner.ui import fmt_dt, fmt_hours, run_action
+
+    diagnosis = view.diagnosis
+    if not diagnosis:
+        return
+    tasks = {t.id: t for t in view.state.tasks}
+    name = lambda tid: tasks[tid].title if tid in tasks else "a deleted task"  # noqa: E731
+    shortfall = diagnosis["shortfall_min"]
+    st.error(f"**Can't fit everything before the deadlines.** {fmt_hours(sum(shortfall.values()))} of work "
+             "doesn't fit. The calendar shows the best plan possible; this work is left out: "
+             + ", ".join(f"{name(t)} ({fmt_hours(m)})" for t, m in shortfall.items()) + ".")
+    st.markdown("**Ways to make it fit** (each one has been checked):")
+    for task_id, iso in diagnosis.get("extend") or []:
+        new_deadline = datetime.fromisoformat(iso)
+        left, right = st.columns([4, 1])
+        left.write(f"Extend “{name(task_id)}” to {fmt_dt(new_deadline)}")
+        if right.button("Apply", key=f"extend_{task_id}"):
+            if run_action(lambda t=task_id, d=new_deadline: service.extend_deadline(t, d),
+                          "Deadline extended and the week replanned."):
+                st.rerun()
+    cut = diagnosis.get("cut")
+    if cut:
+        left, right = st.columns([4, 1])
+        left.write("Cut hours: " + ", ".join(f"{name(t)} −{fmt_hours(m)}" for t, m in cut.items())
+                   + f" ({fmt_hours(sum(cut.values()))} in total)")
+        if right.button("Apply", key="apply_cut"):
+            if run_action(lambda: service.cut_hours(cut), "Estimates reduced and the week replanned."):
+                st.rerun()
+    if diagnosis.get("no_single_extension"):
+        st.caption("No single deadline extension within this plan's horizon makes everything fit.")
+    if diagnosis.get("cut_short"):
+        st.caption("The search for options was cut short after 15 seconds; these are the options found so far.")

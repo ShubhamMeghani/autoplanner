@@ -69,25 +69,17 @@ def demo_service() -> PlannerService:
     return PlannerService(st.session_state["demo_repo"], DEMO_PLANNER_ID)
 
 
-def plan_banners(view: PlanView) -> None:
-    meta = view.meta
-    if meta.get("fallback"):
-        st.warning("Showing a quick plan — the optimizer ran out of time. "
-                   f"Deadline misses: {meta.get('deadline_misses', 0)}, "
-                   f"blocks shorter than your minimum: {meta.get('short_blocks', 0)}.")
-    if view.diagnosis:
-        hours = sum(view.diagnosis["shortfall_min"].values()) / 60
-        st.error(f"Can't fit everything before the deadlines: {hours:g} h don't fit.")
-
-
 def plan_tab(view: PlanView, service: PlannerService) -> None:
-    plan_banners(view)
+    if view.meta.get("fallback"):
+        st.warning("Showing a quick plan — the optimizer ran out of time. "
+                   f"Deadline misses: {view.meta.get('deadline_misses', 0)}, "
+                   f"blocks shorter than your minimum: {view.meta.get('short_blocks', 0)}.")
+    calendar_view.diagnosis_banner(view, service)
+    tasks_view.overdue_panel(view, service)
+    tasks_view.completion_prompts(view, service)
     selected = calendar_view.render(view)
     if selected:
-        block = view.state.block(selected)
-        task = view.state.task(block.task_id) if block else None
-        if block and task:
-            st.markdown(f"**{task.title}** · {block.start:%a %d %b %H:%M}–{block.end:%H:%M} · {block.status}")
+        calendar_view.block_actions(view, service, selected)
     if st.button("Replan now", key="replan"):
         if run_action(service.replan, "Replanned."):
             st.rerun()
