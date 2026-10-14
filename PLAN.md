@@ -274,19 +274,19 @@ New questions found during the build go here first, then into SPEC.md.
 
 ## 6. Phase 1 log
 
-*Filled in during task 1.7. The local run was on 2026-10-15 (Windows 11, `.venv`). The live column is filled in after the deploy.*
+*Filled in during task 1.7. The local run was on 2026-10-15 (Windows 11, `.venv`). The live run was reported by the owner on 2026-10-15; all checks passed, and IST time and all 4 secrets were correct.*
 
 | Item | Local | Live (Streamlit Cloud) |
 |---|---|---|
-| URL | http://localhost:8501 | |
-| Python | 3.13.7 | |
-| OR-Tools version | 9.15.6755, CP-SAT OPTIMAL (5, 4, 3) | |
-| Tesseract version | not installed locally (expected) | |
-| `streamlit-calendar` click works? (D-6) | not checked: no browser connection; check live | |
-| Supabase write and read round trip (ms) | 586 | |
-| Supabase key type that works (K14) | new `sb_secret_…` secret key works with `supabase` 2.32.0 | |
-| Gemini model ID | `gemini-3.5-flash-lite` (see the finding below) | |
-| Gemini call latency (ms) | 2,455 (one earlier run took 10,240) | |
+| URL | http://localhost:8501 | the owner's `*.streamlit.app` URL (not recorded here) |
+| Python | 3.13.7 | 3.13.16 ✅ |
+| OR-Tools version | 9.15.6755, CP-SAT OPTIMAL (5, 4, 3) | 9.15.6755, CP-SAT OPTIMAL (5, 4, 3) ✅ |
+| Tesseract version | not installed locally (expected) | 5.5.0 ✅ |
+| `streamlit-calendar` click works? (D-6) | not checked: no browser connection; check live | yes: click received for `smoke-1` ✅. No D-6 fallback needed |
+| Supabase write and read round trip (ms) | 586 | 2,449 ✅ |
+| Supabase key type that works (K14) | new `sb_secret_…` secret key works with `supabase` 2.32.0 | same ✅ |
+| Gemini model ID | `gemini-3.5-flash-lite` (see the finding below) | `gemini-3.5-flash-lite` ✅, correct row returned |
+| Gemini call latency (ms) | 2,455 (one earlier run took 10,240) | 2,219 ✅ |
 
 **Finding (risk K7), 2026-10-15:**
 - The `AQ.` key works as an API key with `google-genai` 2.30.1. Listing models and text calls succeed, and there was no 401 / `ACCESS_TOKEN_TYPE_UNSUPPORTED`.
