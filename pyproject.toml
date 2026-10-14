@@ -6,5 +6,6 @@ requires-python = ">=3.13,<3.14"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# R60: the suite runs with no network.
-addopts = "--disable-socket"
+# R60: no network. Connections are allowed only to localhost. A full
+# --disable-socket also blocks the socketpair that asyncio needs on Windows.
+addopts = "--allow-hosts=127.0.0.1 -p no:cacheprovider"
