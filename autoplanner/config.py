@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+import re
+import traceback
 from dataclasses import dataclass
 from datetime import timedelta
 from zoneinfo import ZoneInfo
@@ -52,6 +55,36 @@ TYPE_LABELS = {
     "quiz": "Quiz",
     "other": "Other",
 }
+
+
+_SENSITIVE = re.compile(
+    r"sb_secret_[A-Za-z0-9_-]{20,}|AQ\.[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{20,}"
+    r"|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}(\.[A-Za-z0-9_-]+)?"
+    r"|(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])"  # planner IDs
+)
+
+
+def scrub(text: str) -> str:
+    """Remove keys and planner IDs from text that goes to logs (R5)."""
+    return _SENSITIVE.sub("<redacted>", text)
+
+
+class _ScrubFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        if record.exc_info:
+            message += "\n" + "".join(traceback.format_exception(*record.exc_info))
+            record.exc_info = None
+            record.exc_text = None
+        record.msg, record.args = scrub(message), ()
+        return True
+
+
+def install_log_scrubber(logger_name: str = "autoplanner") -> logging.Logger:
+    logger = logging.getLogger(logger_name)
+    if not any(isinstance(f, _ScrubFilter) for f in logger.filters):
+        logger.addFilter(_ScrubFilter())
+    return logger
 
 
 def get_secret(name: str) -> str | None:

@@ -108,10 +108,11 @@ def _plan_from(problem: Problem, assignment: dict[str, list[int]], kind, status:
     return plan, check
 
 
-def make_plan(problem: Problem, *, solve_fn=solver_mod.solve, diagnose_fn=None,
+def make_plan(problem: Problem, *, solve_fn=None, diagnose_fn=None,
               time_limit: float = SOLVER_TIME_LIMIT_S, workers: int = SOLVER_WORKERS,
               plan_version: int = 0) -> PlanOutcome:
     """Strict solve; if proven infeasible, diagnose; if the solver runs out of time, greedy (R19)."""
+    solve_fn = solve_fn or solver_mod.solve  # looked up at call time, so tests can stub it
     started = clock.perf_counter()
     hint = greedy_plan(problem)
     result = solve_fn(problem, "strict", time_limit=time_limit, workers=workers, hint=hint)
@@ -205,7 +206,7 @@ class PlanView:
 class PlannerService:
     """All reads and changes for one planner go through here."""
 
-    def __init__(self, repo, planner_id: str, *, clock=None, solve_fn=solver_mod.solve,
+    def __init__(self, repo, planner_id: str, *, clock=None, solve_fn=None,
                  time_limit: float = SOLVER_TIME_LIMIT_S, workers: int = SOLVER_WORKERS):
         self.repo, self.planner_id = repo, planner_id
         self.clock = clock or (lambda: datetime.now(TZ))

@@ -5,39 +5,62 @@ Routes: no query parameters -> landing page; ?demo=1 -> demo; ?p=<planner id> ->
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 
 import streamlit as st
 
-from autoplanner.config import TZ
+from autoplanner.config import TZ, install_log_scrubber
 from autoplanner.demo import DEMO_PLANNER_ID, demo_repo
+from autoplanner.models import Preferences
 from autoplanner.planner import PlannerService, PlanView
-from autoplanner.ui import calendar_view
+from autoplanner.storage import StorageUnavailable, get_repo, is_valid_planner_id
+from autoplanner.ui import calendar_view, flash, run_action, settings_view, tasks_view
 
-log = logging.getLogger("autoplanner")
+log = install_log_scrubber()
 st.set_page_config(page_title="AutoPlanner", page_icon="🗓️", layout="wide")
+
+NOT_FOUND = "Planner not found. Check the link, or start fresh below."
+STORAGE_DOWN = "Storage is unavailable right now; try the demo or retry later."
 
 
 def now() -> datetime:
     return datetime.now(TZ)
 
 
+def planner_link(planner_id: str) -> str:
+    base = (st.context.url or "").split("?")[0] or "/"
+    return f"{base}?p={planner_id}"
+
+
 # ---------- pages ----------
 
-def landing() -> None:
+def landing(message: str | None = None) -> None:
     st.title("AutoPlanner")
+    if message:
+        st.error(message)
     st.write("Plans your week automatically. Add your classes and deadlines, and AutoPlanner "
              "places study blocks so that every deadline is met, demanding work lands in your focus "
              "hours, and big tasks are split into chunks. When a block doesn't happen, the rest of "
              "the week is replanned instantly.")
     left, right = st.columns(2)
     if left.button("Try the demo", type="primary", use_container_width=True):
+        st.query_params.clear()
         st.query_params["demo"] = "1"
         st.rerun()
     if right.button("Create my planner", use_container_width=True):
-        st.session_state["create_planner"] = True
-        st.rerun()
+        create_planner()
+
+
+def create_planner() -> None:
+    try:
+        planner_id = get_repo().create_planner(Preferences())
+    except StorageUnavailable:
+        st.error(STORAGE_DOWN)
+        return
+    st.session_state["just_created"] = True
+    st.query_params.clear()
+    st.query_params["p"] = planner_id
+    st.rerun()
 
 
 def demo_service() -> PlannerService:
@@ -57,7 +80,7 @@ def plan_banners(view: PlanView) -> None:
         st.error(f"Can't fit everything before the deadlines: {hours:g} h don't fit.")
 
 
-def plan_tab(view: PlanView) -> None:
+def plan_tab(view: PlanView, service: PlannerService) -> None:
     plan_banners(view)
     selected = calendar_view.render(view)
     if selected:
@@ -65,25 +88,59 @@ def plan_tab(view: PlanView) -> None:
         task = view.state.task(block.task_id) if block else None
         if block and task:
             st.markdown(f"**{task.title}** · {block.start:%a %d %b %H:%M}–{block.end:%H:%M} · {block.status}")
+    if st.button("Replan now", key="replan"):
+        if run_action(service.replan, "Replanned."):
+            st.rerun()
 
 
-def planner_page(service: PlannerService, demo: bool) -> None:
+def planner_page(service: PlannerService, demo: bool, link: str | None = None) -> None:
+    st.title("AutoPlanner")
     if demo:
-        st.info("Demo — changes are not saved.")
-        if st.button("Reset demo"):
+        left, right = st.columns([4, 1])
+        left.info("Demo — changes are not saved.")
+        if right.button("Reset demo"):
             st.session_state.pop("demo_repo", None)
             st.rerun()
-    view = service.view()
-    st.title("AutoPlanner")
-    (plan,) = st.tabs(["Plan"])
+    if link and st.session_state.pop("just_created", False):
+        st.success("Your planner is ready. Save this link:")
+        settings_view.show_link(link)
+    flash()
+    try:
+        view = service.view()
+    except StorageUnavailable:
+        st.error(STORAGE_DOWN)
+        return
+    plan, tasks, settings = st.tabs(["Plan", "Tasks & events", "Settings"])
     with plan:
-        plan_tab(view)
+        plan_tab(view, service)
+    with tasks:
+        tasks_view.render(view, service)
+    with settings:
+        settings_view.render(view, service, link)
+
+
+def planner_route(planner_id: str) -> None:
+    if not is_valid_planner_id(planner_id):
+        landing(NOT_FOUND)
+        return
+    try:
+        repo = get_repo()
+        exists = repo.planner_exists(planner_id)
+    except StorageUnavailable:
+        landing(STORAGE_DOWN)
+        return
+    if not exists:
+        landing(NOT_FOUND)  # same message as a malformed ID (R4)
+        return
+    planner_page(PlannerService(repo, planner_id), demo=False, link=planner_link(planner_id))
 
 
 def main() -> None:
     params = st.query_params
     if params.get("demo") == "1":
         planner_page(demo_service(), demo=True)
+    elif "p" in params:
+        planner_route(params.get("p", ""))
     else:
         landing()
 

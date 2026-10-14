@@ -10,8 +10,9 @@ from autoplanner.solver import blocks_from_assignment
 from autoplanner.timegrid import Problem
 
 
-def diagnose(problem: Problem, *, solve_fn=solver_mod.solve, time_limit: float = SOLVER_TIME_LIMIT_S,
+def diagnose(problem: Problem, *, solve_fn=None, time_limit: float = SOLVER_TIME_LIMIT_S,
              workers: int = SOLVER_WORKERS, plan_version: int = 0, hint=None, **_) -> Diagnosis:
+    solve_fn = solve_fn or solver_mod.solve
     result = solve_fn(problem, "shortfall", time_limit=time_limit, workers=workers, hint=hint)
     if result.feasible:
         assignment, status = result.assignment, result.status
