@@ -274,16 +274,23 @@ New questions found during the build go here first, then into SPEC.md.
 
 ## 6. Phase 1 log
 
-*Filled in during task 1.7.*
+*Filled in during task 1.7. The local run was on 2026-10-15 (Windows 11, `.venv`). The live column is filled in after the deploy.*
 
-| Item | Value |
-|---|---|
-| Live URL | |
-| Python on Cloud | |
-| OR-Tools version | |
-| Tesseract version | |
-| `streamlit-calendar` click works? (D-6) | |
-| Supabase write and read round trip (ms) | |
-| Supabase key type that works (K14) | |
-| Gemini model ID | |
-| Gemini call latency (ms) | |
+| Item | Local | Live (Streamlit Cloud) |
+|---|---|---|
+| URL | http://localhost:8501 | |
+| Python | 3.13.7 | |
+| OR-Tools version | 9.15.6755, CP-SAT OPTIMAL (5, 4, 3) | |
+| Tesseract version | not installed locally (expected) | |
+| `streamlit-calendar` click works? (D-6) | not checked: no browser connection; check live | |
+| Supabase write and read round trip (ms) | 586 | |
+| Supabase key type that works (K14) | new `sb_secret_…` secret key works with `supabase` 2.32.0 | |
+| Gemini model ID | `gemini-3.5-flash-lite` (see the finding below) | |
+| Gemini call latency (ms) | 2,455 (one earlier run took 10,240) | |
+
+**Finding (risk K7), 2026-10-15:**
+- The `AQ.` key works as an API key with `google-genai` 2.30.1. Listing models and text calls succeed, and there was no 401 / `ACCESS_TOKEN_TYPE_UNSUPPORTED`.
+- `gemini-2.5-flash` returns 404: "no longer available to new users".
+- `gemini-3.8-flash`, which Google recommends, returned **503 UNAVAILABLE for every request containing an image**, with or without a schema. Text and schema-only requests succeeded. `gemini-3.5-flash` and `gemini-flash-latest` also returned 503 for image requests.
+- `gemini-3.5-flash-lite` read the test image correctly with the JSON schema, so `GEMINI_MODEL` is set to it for now.
+- Recheck `gemini-3.8-flash` before Phase 7. Only the secret needs to change.

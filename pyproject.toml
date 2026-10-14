@@ -1,0 +1,10 @@
+[project]
+name = "autoplanner"
+version = "0.1.0"
+description = "Free web app that plans a student's week automatically (OR-Tools CP-SAT)."
+requires-python = ">=3.13,<3.14"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# R60: the suite runs with no network.
+addopts = "--disable-socket"

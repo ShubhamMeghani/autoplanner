@@ -1,0 +1,13 @@
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
+
+[client]
+# R35: never show tracebacks to users; full details stay in the server logs.
+showErrorDetails = "type"
+
+[theme]
+base = "light"
+primaryColor = "#2563eb"
