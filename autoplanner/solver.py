@@ -18,12 +18,23 @@ from autoplanner.models import Block
 from autoplanner.timegrid import Problem
 
 Mode = Literal["strict", "shortfall", "lateness"]
+
+# The lowest-priority goal (earlier days) gets at most EARLINESS_TIME_S and stops within 10 %
+# of its bound. Its lower bound is weak: on realistic weeks the plan found in 0.5 s was as good
+# as the one after 10 s, but proving it took longer than the whole time limit. The goals above
+# it (deadlines, focus windows, fewer blocks) are always solved to proven optimality first.
+EARLINESS_GAP = 0.10
+EARLINESS_TIME_S = 1.0
+# Fewer blocks: usually proven in < 0.5 s, but finding the minimum took 4-5 s on a few weeks.
+BLOCKS_TIME_S = 3.0
 Objective = Literal["full", "feasibility"]
 
 
 @dataclass
 class SolveResult:
     status: str  # OPTIMAL, FEASIBLE, INFEASIBLE, UNKNOWN or MODEL_INVALID
+    proven_goals: int = 0  # goals proven optimal, in priority order
+    total_goals: int = 0
     assignment: dict[str, list[int]] = field(default_factory=dict)  # task id -> slot indices
     shortfall: dict[str, int] = field(default_factory=dict)  # task id -> slots not placed
     finish: int | None = None  # finish slot of `minimize_finish_of`
@@ -51,7 +62,8 @@ def solve(
     shortfall: a job may leave slots unplaced; the total shortfall is minimised first.
     lateness:  work may run past deadlines; total lateness (in slots) is minimised first.
     relax_deadline_of / minimize_finish_of: used by diagnosis to find a task's earliest
-    feasible deadline. objective="feasibility" skips the soft goals (for verification).
+    feasible deadline. objective="feasibility" solves only the primary goal (if any) and
+    skips the soft goals: used for verification and extension searches.
     """
     started = clock.perf_counter()
     grid, jobs = problem.grid, problem.jobs
@@ -116,6 +128,14 @@ def solve(
                     break
                 model.add_implication(st, nxt)
 
+    # Valid cut: a job needs at least ceil(required / max_block) blocks. It doesn't change the
+    # optimum, but it lets CP-SAT prove the fragmentation term optimal much sooner.
+    if mode == "strict":
+        for j, job in enumerate(jobs):
+            js = [starts[j, s] for s in allowed[j]]
+            if js:
+                model.add(sum(js) >= -(-job.required // max_block))
+
     # R14.6: daily cap, net of work already done that day.
     per_day: dict = defaultdict(list)
     for (j, s), var in x.items():
@@ -136,7 +156,7 @@ def solve(
 
     primary = None
     if mode == "shortfall":
-        primary = sum(shortfall_vars.values())
+        primary = cp_model.LinearExpr.sum(list(shortfall_vars.values()))
     elif mode == "lateness":
         lateness = []
         for j, job in enumerate(jobs):
@@ -145,45 +165,81 @@ def solve(
             late = model.new_int_var(0, grid.n, f"late{j}")
             model.add(late >= finish_var(j, f"f{j}") - job.deadline_slot)
             lateness.append(late)
-        primary = sum(lateness)
+        primary = cp_model.LinearExpr.sum(lateness)
     elif finish_target is not None:
         primary = finish_target
 
+    # R16: goals in strict priority order, solved lexicographically. Each goal is minimised,
+    # then fixed at its value before the next one. One weighted sum of all three goals could
+    # not be proven optimal within the time limit on realistic weeks.
+    stages = [primary] if primary is not None else []
+    gaps = [0.0] * len(stages)
+    caps = [float("inf")] * len(stages)
     if objective == "full":
+        gaps += [0.0, 0.0, EARLINESS_GAP]
+        caps += [float("inf"), BLOCKS_TIME_S, EARLINESS_TIME_S]
         day0 = grid.day_of[0] if grid.n else None
-        total_req = sum(job.required for job in jobs)
-        max_day = (grid.day_of[-1] - day0).days if grid.n else 0
-        t3_max = total_req * max_day
-        t2_max = total_req
-        t1_max = sum(job.required for job in jobs if job.demanding)
-        w2 = t3_max + 1
-        w1 = w2 * t2_max + t3_max + 1
-        w0 = w1 * t1_max + w2 * t2_max + t3_max + 1
-        focus_violations = sum(var for (j, s), var in x.items() if jobs[j].demanding and not grid.focus[s])
-        early = sum(var * (grid.day_of[s] - day0).days for (j, s), var in x.items())
-        terms = w1 * focus_violations + w2 * sum(starts.values()) + early
-        model.minimize(terms if primary is None else w0 * primary + terms)
-    elif primary is not None:
-        model.minimize(primary)
-
-    if hint:
-        hinted = {job.task_id: set(hint.get(job.task_id, ())) for job in jobs}
-        for (j, s), var in x.items():
-            model.add_hint(var, 1 if s in hinted[jobs[j].task_id] else 0)
+        stages += [
+            cp_model.LinearExpr.sum([var for (j, s), var in x.items()
+                                     if jobs[j].demanding and not grid.focus[s]]),  # focus windows
+            cp_model.LinearExpr.sum(list(starts.values())),  # fewer blocks
+            cp_model.LinearExpr.weighted_sum(list(x.values()),  # earlier days
+                                             [(grid.day_of[s] - day0).days for (j, s) in x]),
+        ]
 
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = max(0.05, time_limit)
     solver.parameters.num_workers = workers
     solver.parameters.random_seed = 7
-    status = solver.solve(model)
-    result = SolveResult(solver.status_name(status), seconds=clock.perf_counter() - started)
-    if result.feasible:
-        for j, job in enumerate(jobs):
-            result.assignment[job.task_id] = [s for s in allowed[j] if solver.value(x[j, s])]
-            if mode == "shortfall":
-                result.shortfall[job.task_id] = solver.value(shortfall_vars[j])
-        if finish_target is not None:
-            result.finish = solver.value(finish_target)
+    deadline = started + max(0.05, time_limit)
+    best: dict | None = None
+    overall = "OPTIMAL"
+
+    def run(hint_values: dict | None, cap: float) -> str:
+        model.clear_hints()
+        if hint_values is not None:
+            for key, var in x.items():
+                model.add_hint(var, hint_values[key])
+        elif hint:
+            hinted = {job.task_id: set(hint.get(job.task_id, ())) for job in jobs}
+            for (j, s), var in x.items():
+                model.add_hint(var, 1 if s in hinted[jobs[j].task_id] else 0)
+        solver.parameters.max_time_in_seconds = min(cap, max(0.05, deadline - clock.perf_counter()))
+        return solver.status_name(solver.solve(model))
+
+    proven = 0
+    for expr, gap, cap in zip(stages or [None], gaps or [0.0], caps or [float("inf")]):
+        if best is not None and deadline - clock.perf_counter() < 0.05:
+            overall = "FEASIBLE"
+            break
+        if expr is not None:
+            model.minimize(expr)
+        solver.parameters.relative_gap_limit = gap
+        status = run(best, cap)
+        if status in ("OPTIMAL", "FEASIBLE"):
+            best = {key: solver.value(var) for key, var in x.items()}
+            extra = {"short": {j: solver.value(u) for j, u in shortfall_vars.items()},
+                     "finish": solver.value(finish_target) if finish_target is not None else None}
+            if status == "FEASIBLE":
+                overall = "FEASIBLE"
+            else:
+                proven += 1
+            if expr is not None:
+                model.add(expr <= round(solver.objective_value))
+            if status == "FEASIBLE":
+                break  # out of time for this goal; keep the best plan found so far
+        elif best is None:
+            return SolveResult(status, seconds=clock.perf_counter() - started)
+        else:
+            overall = "FEASIBLE"
+            break
+
+    result = SolveResult(overall, proven_goals=proven, total_goals=len(stages),
+                         seconds=clock.perf_counter() - started)
+    for j, job in enumerate(jobs):
+        result.assignment[job.task_id] = [s for s in allowed[j] if best[j, s]]
+        if mode == "shortfall":
+            result.shortfall[job.task_id] = extra["short"][j]
+    result.finish = extra["finish"]
     return result
 
 

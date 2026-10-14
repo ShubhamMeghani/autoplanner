@@ -3,18 +3,23 @@ strict -> fallback -> validate pipeline (R14, R17, R19, R20, R25, R33)."""
 
 from __future__ import annotations
 
+import copy
+import hashlib
+import json
 import math
 import time as clock
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import datetime
 
 from autoplanner import solver as solver_mod
 from autoplanner.baseline import greedy_plan
-from autoplanner.config import SLOT_MINUTES, SOLVER_TIME_LIMIT_S, SOLVER_WORKERS
-from autoplanner.models import Block, Diagnosis, Event, Plan, Preferences, Task
+from autoplanner.config import SLOT_MINUTES, SOLVER_TIME_LIMIT_S, SOLVER_WORKERS, TZ
+from autoplanner.models import Block, Diagnosis, Event, Plan, PlannerState, Preferences, Task
 from autoplanner.solver import blocks_from_assignment
-from autoplanner.timegrid import Job, Problem, build_grid, to_ist
+from autoplanner.storage import save_changes
+from autoplanner.timegrid import Job, Problem, build_grid, horizon_end, to_ist
 from autoplanner.validate import ValidationResult, validate
 
 
@@ -55,7 +60,9 @@ def refresh_overdue(tasks: list[Task], blocks: list[Block], now: datetime) -> li
 def build_problem(now: datetime, prefs: Preferences, events: list[Event], tasks: list[Task],
                   blocks: list[Block]) -> Problem:
     now = to_ist(now)
-    grid = build_grid(now, prefs, events)
+    in_progress = [(b.start, b.end) for b in blocks
+                   if b.start < now < b.end and b.status in ("planned", "done")]
+    grid = build_grid(now, prefs, events, in_progress)
     horizon_hours = (grid.end - now).total_seconds() / 3600
     min_block_slots = prefs.min_block_min // SLOT_MINUTES
 
@@ -84,7 +91,7 @@ def build_problem(now: datetime, prefs: Preferences, events: list[Event], tasks:
     day_cap = {day: max(0, (prefs.max_work_per_day_min - used_min.get(day, 0)) // SLOT_MINUTES)
                for day in grid.days}
     return Problem(now=now, prefs=prefs, events=list(events), grid=grid, jobs=jobs,
-                   day_cap=day_cap, day_used_min=dict(used_min))
+                   day_cap=day_cap, day_used_min=dict(used_min), busy=in_progress)
 
 
 def _plan_from(problem: Problem, assignment: dict[str, list[int]], kind, status: str, version: int,
@@ -129,3 +136,112 @@ def make_plan(problem: Problem, *, solve_fn=solver_mod.solve, diagnose_fn=None,
     plan, check = _plan_from(problem, hint, "greedy", "GREEDY", plan_version,
                              clock.perf_counter() - started, fallback=True)
     return PlanOutcome(plan, None, check, problem)
+
+
+# ---------- service: load -> plan -> persist (R12, R35, R62) ----------
+
+def input_hash(state: PlannerState) -> str:
+    """Hash of everything that affects the plan. Future planned blocks are outputs, not inputs."""
+    payload = {
+        "prefs": state.prefs.to_dict(),
+        "events": sorted([e.id, e.title, e.kind, str(e.start_time), str(e.end_time), str(e.on_date),
+                          list(e.weekdays or ()), str(e.until_date)] for e in state.events),
+        "tasks": sorted([t.id, t.est_hours, t.deadline.isoformat(), t.demanding, t.status]
+                        for t in state.tasks),
+        "blocks": sorted([b.id, b.status, b.actual_minutes, b.start.isoformat(), b.end.isoformat()]
+                         for b in state.blocks if b.status != "planned"),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
+def plan_meta(outcome: PlanOutcome, digest: str, version: int, now: datetime) -> dict:
+    plan, diagnosis = outcome.plan, outcome.diagnosis
+    meta = {
+        "input_hash": digest, "plan_version": version, "planned_at": now.isoformat(),
+        "kind": plan.kind, "status": plan.status, "fallback": plan.fallback,
+        "unscheduled_min": plan.unscheduled_min, "deadline_misses": plan.deadline_misses,
+        "short_blocks": plan.short_blocks, "beyond_horizon": sorted(plan.beyond_horizon),
+        "solve_seconds": round(plan.solve_seconds, 3), "optimal": plan.optimal, "diagnosis": None,
+    }
+    if diagnosis is not None:
+        meta["diagnosis"] = {
+            "shortfall_min": diagnosis.shortfall_min,
+            "extend": [[o.task_id, o.new_deadline.isoformat()] for o in diagnosis.extend_options],
+            "cut": diagnosis.cut_option, "no_single_extension": diagnosis.no_single_extension,
+            "cut_short": diagnosis.cut_short,
+        }
+    return meta
+
+
+@dataclass
+class PlanView:
+    """What the UI shows: the stored state plus a description of its plan."""
+
+    state: PlannerState
+    now: datetime
+    horizon_end: datetime
+
+    @property
+    def meta(self) -> dict:
+        return self.state.meta
+
+    @property
+    def future_blocks(self) -> list[Block]:
+        return sorted((b for b in self.state.blocks if b.status == "planned" and b.start >= self.now),
+                      key=lambda b: b.start)
+
+    @property
+    def diagnosis(self) -> dict | None:
+        return self.meta.get("diagnosis")
+
+    def remaining_min(self, task: Task) -> int:
+        return remaining_minutes(task, self.state.blocks, self.now)
+
+    def ready_to_complete(self) -> list[Task]:
+        """R26: open tasks with no work left."""
+        return [t for t in self.state.tasks if t.status == "open" and self.remaining_min(t) == 0]
+
+
+class PlannerService:
+    """All reads and changes for one planner go through here."""
+
+    def __init__(self, repo, planner_id: str, *, clock=None, solve_fn=solver_mod.solve,
+                 time_limit: float = SOLVER_TIME_LIMIT_S, workers: int = SOLVER_WORKERS):
+        self.repo, self.planner_id = repo, planner_id
+        self.clock = clock or (lambda: datetime.now(TZ))
+        self.solve_fn, self.time_limit, self.workers = solve_fn, time_limit, workers
+
+    def now(self) -> datetime:
+        return to_ist(self.clock())
+
+    def view(self) -> PlanView:
+        """The current plan; re-solves only when an input changed (R62)."""
+        state = self.repo.load(self.planner_id)
+        now = self.now()
+        refreshed = refresh_overdue(state.tasks, state.blocks, now)
+        current = replace(state, tasks=refreshed)
+        if refreshed != state.tasks or state.meta.get("input_hash") != input_hash(current):
+            return self._commit(state, current, now)
+        return PlanView(state, now, horizon_end(now, state.prefs.horizon_days))
+
+    def change(self, mutate: Callable[[PlannerState, datetime], PlannerState]) -> PlanView:
+        """Apply a change, plan it, and only then persist both (R12). Errors leave state as it was (R35)."""
+        state = self.repo.load(self.planner_id)
+        now = self.now()
+        new = mutate(copy.deepcopy(state), now)
+        new = replace(new, tasks=refresh_overdue(new.tasks, new.blocks, now))
+        return self._commit(state, new, now)
+
+    def replan(self) -> PlanView:
+        return self.change(lambda s, now: replace(s, meta={**s.meta, "input_hash": None}))
+
+    def _commit(self, old: PlannerState, new: PlannerState, now: datetime) -> PlanView:
+        problem = build_problem(now, new.prefs, new.events, new.tasks, new.blocks)
+        version = int(old.meta.get("plan_version", 0)) + 1
+        outcome = make_plan(problem, solve_fn=self.solve_fn, time_limit=self.time_limit,
+                            workers=self.workers, plan_version=version)
+        kept = [b for b in new.blocks if not (b.status == "planned" and b.start >= now)]
+        final = replace(new, blocks=kept + outcome.plan.blocks,
+                        meta=plan_meta(outcome, input_hash(new), version, now))
+        save_changes(self.repo, self.planner_id, old, final)
+        return PlanView(final, now, horizon_end(now, final.prefs.horizon_days))

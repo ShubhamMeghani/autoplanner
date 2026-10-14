@@ -169,6 +169,23 @@ class Diagnosis:
         return sum(self.shortfall_min.values())
 
 
+@dataclass
+class PlannerState:
+    """Everything stored for one planner. `meta` describes the stored plan (R62)."""
+
+    prefs: Preferences
+    events: list[Event] = field(default_factory=list)
+    tasks: list[Task] = field(default_factory=list)
+    blocks: list[Block] = field(default_factory=list)
+    meta: dict = field(default_factory=dict)
+
+    def task(self, task_id: str) -> Task | None:
+        return next((t for t in self.tasks if t.id == task_id), None)
+
+    def block(self, block_id: str) -> Block | None:
+        return next((b for b in self.blocks if b.id == block_id), None)
+
+
 # ---------- validation (R10, R11, R13) ----------
 
 def validate_task_input(title: str, est_hours: float, deadline: datetime | None, now: datetime) -> dict[str, str]:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 
 from autoplanner.config import SLOT, SLOT_MINUTES, TZ
@@ -123,18 +123,21 @@ class Problem:
     jobs: list[Job]
     day_cap: dict[date, int]  # slots still allowed per day, after work already done (D-15)
     day_used_min: dict[date, int]  # task minutes already done or past per day
+    busy: list[tuple[datetime, datetime]] = field(default_factory=list)  # in-progress blocks
 
     @property
     def max_block(self) -> int:
         return self.prefs.max_block_min // SLOT_MINUTES
 
 
-def build_grid(now: datetime, prefs: Preferences, events: list[Event]) -> Grid:
+def build_grid(now: datetime, prefs: Preferences, events: list[Event],
+               extra_busy: list[tuple[datetime, datetime]] = ()) -> Grid:
+    """extra_busy: time already taken, e.g. the rest of a block that is in progress."""
     start = ceil_to_slot(now)
     end = horizon_end(now, prefs.horizon_days)
     n = max(0, int((end - start) / SLOT))
     first_day, last_day = start.date(), (end - SLOT).date()
-    busy = [iv for e in events for iv in event_intervals(e, first_day, last_day)]
+    busy = [iv for e in events for iv in event_intervals(e, first_day, last_day)] + list(extra_busy)
 
     available, focus, day_of = [], [], []
     for i in range(n):

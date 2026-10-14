@@ -53,7 +53,7 @@ def validate(problem: Problem, blocks: list[Block], kind: PlanKind) -> Validatio
 
     # ---- base rules ----
     busy = [iv for e in problem.events
-            for iv in event_intervals(e, grid.start.date(), grid.end.date())]
+            for iv in event_intervals(e, grid.start.date(), grid.end.date())] + list(problem.busy)
     for b in blocks:
         label = f"block {b.start:%a %H:%M}-{b.end:%H:%M}"
         if b.task_id not in jobs:
