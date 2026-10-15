@@ -179,3 +179,18 @@ def test_plan_tab_offers_the_ics_download_r49():
     app = demo_app()
     assert not app.exception
     assert "Download the file." in all_text(app)
+
+
+def test_paste_import_review_and_add_r44_r46():
+    app = demo_app()
+    repo = app.session_state["demo_repo"]
+    before = len(repo.load(DEMO_PLANNER_ID).tasks)
+    app.text_area(key="paste_text").input(
+        "Lab 9 report\nE9 241 Digital Image Processing\nDue tomorrow at 11:59 PM\n"
+        "Essay | Due sometime\n").run()
+    app.button(key="read_text").click().run()
+    assert not app.exception
+    assert "Review before adding" in all_text(app) or app.session_state["import_rows"]
+    app.button(key="add_selected").click().run()  # refused: "Essay" has no deadline
+    assert any("needs a deadline" in e.value for e in app.error)
+    assert len(repo.load(DEMO_PLANNER_ID).tasks) == before

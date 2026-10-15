@@ -38,3 +38,38 @@ def one_off(title: str, day: date, start: str, end: str, kind: str = "blocked") 
 @pytest.fixture
 def prefs() -> Preferences:
     return Preferences()
+
+
+# ---------- Gemini mock (R60): records calls, never touches the network ----------
+
+import json  # noqa: E402
+from pathlib import Path  # noqa: E402
+from types import SimpleNamespace  # noqa: E402
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+class FakeGemini:
+    """Stands in for google.genai.Client: .models.generate_content and .files.upload."""
+
+    def __init__(self, rows=None, error: Exception | None = None, text: str | None = None):
+        self.calls, self.uploads = [], []
+        outer = self
+
+        class Models:
+            def generate_content(self, model, contents, config):
+                outer.calls.append(SimpleNamespace(model=model, contents=contents, config=config))
+                if error is not None:
+                    raise error
+                return SimpleNamespace(text=text if text is not None else json.dumps({"rows": rows or []}))
+
+        class Files:
+            def upload(self, *args, **kwargs):
+                outer.uploads.append((args, kwargs))
+                raise AssertionError("the Files API must not be used (R40)")
+
+        self.models, self.files = Models(), Files()
+
+
+def synthetic_png(number: int = 1) -> bytes:
+    return (FIXTURES / "teams_synthetic" / f"teams_{number}.png").read_bytes()

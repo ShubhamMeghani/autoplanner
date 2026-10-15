@@ -1,0 +1,35 @@
+# Paste-parser fixture (AC-18). Import date: Wednesday 2026-10-14.
+# Lines starting with "# " are comments. "=== INPUT ===" and "=== EXPECTED ===" split the file.
+# Expected lines: title | course | deadline (ISO, or "-") | flag
+=== INPUT ===
+Assignment 4: Graph algorithms
+E0 251 Data Structures & Algorithms
+Due tomorrow at 11:59 PM
+
+Lab 3 report: histogram equalisation
+E9 241 Digital Image Processing
+100 points
+Due Friday at 11:59 PM
+
+Problem set 5
+MA 261 Probability Models
+Past due Oct 13, 11:59 PM
+
+Mini-project milestone 2
+DS 221 Scalable Systems
+Due Wednesday at 9:00 AM
+Turned in
+
+Quiz 3 prep — Due Oct 20
+Read the MapReduce paper	Due October 17, 2026 9:00 PM
+Essay draft | Due sometime soon
+Reading response - due 3 Jan
+=== EXPECTED ===
+Assignment 4: Graph algorithms | E0 251 Data Structures & Algorithms | 2026-10-15T23:59:00+05:30 | inferred
+Lab 3 report: histogram equalisation | E9 241 Digital Image Processing | 2026-10-16T23:59:00+05:30 | inferred
+Problem set 5 | MA 261 Probability Models | 2026-10-13T23:59:00+05:30 | inferred
+Mini-project milestone 2 | DS 221 Scalable Systems | 2026-10-21T09:00:00+05:30 | ambiguous
+Quiz 3 prep | - | 2026-10-20T23:59:00+05:30 | inferred
+Read the MapReduce paper | - | 2026-10-17T21:00:00+05:30 | none
+Essay draft | - | - | unresolved
+Reading response | - | 2027-01-03T23:59:00+05:30 | inferred

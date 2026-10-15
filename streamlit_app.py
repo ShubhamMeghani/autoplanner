@@ -15,7 +15,7 @@ from autoplanner.ics_export import GOOGLE_STEPS, build_ics, filename
 from autoplanner.models import Preferences
 from autoplanner.planner import PlannerService, PlanView
 from autoplanner.storage import StorageUnavailable, get_repo, is_valid_planner_id
-from autoplanner.ui import calendar_view, flash, run_action, settings_view, tasks_view
+from autoplanner.ui import calendar_view, flash, import_view, run_action, settings_view, tasks_view
 
 log = install_log_scrubber()
 st.set_page_config(page_title="AutoPlanner", page_icon="🗓️", layout="wide")
@@ -112,11 +112,13 @@ def planner_page(service: PlannerService, demo: bool, link: str | None = None) -
     except StorageUnavailable:
         st.error(STORAGE_DOWN)
         return
-    plan, tasks, settings = st.tabs(["Plan", "Tasks & events", "Settings"])
+    plan, tasks, imports, settings = st.tabs(["Plan", "Tasks & events", "Import", "Settings"])
     with plan:
         plan_tab(view, service)
     with tasks:
         tasks_view.render(view, service)
+    with imports:
+        import_view.render(view, service)
     with settings:
         settings_view.render(view, service, link)
 

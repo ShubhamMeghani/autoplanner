@@ -1,0 +1,110 @@
+{
+  "import_date": "2026-10-14",
+  "images": [
+    {
+      "file": "teams_1.png",
+      "rows": [
+        {
+          "title": "Assignment 4: Graph algorithms",
+          "course": "E0 251 Data Structures and Algorithms",
+          "due_text": "Due tomorrow at 11:59 PM",
+          "deadline": "2026-10-15T23:59:00+05:30"
+        },
+        {
+          "title": "Problem set 5",
+          "course": "MA 261 Probability Models",
+          "due_text": "Due Friday at 5:00 PM",
+          "deadline": "2026-10-16T17:00:00+05:30"
+        },
+        {
+          "title": "Lab 3 report: histogram equalisation",
+          "course": "E9 241 Digital Image Processing",
+          "due_text": "Due Oct 20, 11:59 PM",
+          "deadline": "2026-10-20T23:59:00+05:30"
+        },
+        {
+          "title": "Mini-project milestone 2",
+          "course": "DS 221 Scalable Systems",
+          "due_text": "Due Wednesday at 9:00 AM",
+          "deadline": "2026-10-21T09:00:00+05:30"
+        },
+        {
+          "title": "Reading response: MapReduce",
+          "course": "DS 221 Scalable Systems",
+          "due_text": "Due today at 6:00 PM",
+          "deadline": "2026-10-14T18:00:00+05:30"
+        }
+      ]
+    },
+    {
+      "file": "teams_2.png",
+      "rows": [
+        {
+          "title": "Quiz 3",
+          "course": "MA 261 Probability Models",
+          "due_text": "Due October 22, 2026 11:30 AM",
+          "deadline": "2026-10-22T11:30:00+05:30"
+        },
+        {
+          "title": "Assignment 5: Dynamic programming",
+          "course": "E0 251 Data Structures and Algorithms",
+          "due_text": "Due Oct 27, 11:59 PM",
+          "deadline": "2026-10-27T23:59:00+05:30"
+        },
+        {
+          "title": "Lab 4 report: edge detection",
+          "course": "E9 241 Digital Image Processing",
+          "due_text": "Due Monday at 11:59 PM",
+          "deadline": "2026-10-19T23:59:00+05:30"
+        },
+        {
+          "title": "Term paper outline",
+          "course": "HS 202 Technology and Society",
+          "due_text": "Due 3 Jan",
+          "deadline": "2027-01-03T23:59:00+05:30"
+        },
+        {
+          "title": "Problem set 4 resubmission",
+          "course": "MA 261 Probability Models",
+          "due_text": "Past due Oct 13, 11:59 PM",
+          "deadline": "2026-10-13T23:59:00+05:30"
+        }
+      ]
+    },
+    {
+      "file": "teams_3.png",
+      "rows": [
+        {
+          "title": "Midterm preparation worksheet",
+          "course": "E9 241 Digital Image Processing",
+          "due_text": "Due Thursday at 2:00 PM",
+          "deadline": "2026-10-15T14:00:00+05:30"
+        },
+        {
+          "title": "Systems lab 2: MPI basics",
+          "course": "DS 221 Scalable Systems",
+          "due_text": "Due tomorrow at 9:00 AM",
+          "deadline": "2026-10-15T09:00:00+05:30"
+        },
+        {
+          "title": "Chapter 24 exercises",
+          "course": "E0 251 Data Structures and Algorithms",
+          "due_text": "Due Oct 19, 11:59 PM",
+          "deadline": "2026-10-19T23:59:00+05:30"
+        },
+        {
+          "title": "Project proposal",
+          "course": "HS 202 Technology and Society",
+          "due_text": "Due November 2, 2026 5:00 PM",
+          "deadline": "2026-11-02T17:00:00+05:30"
+        },
+        {
+          "title": "Weekly reflection",
+          "course": "HS 202 Technology and Society",
+          "due_text": "Due Sunday at 11:59 PM",
+          "deadline": "2026-10-18T23:59:00+05:30"
+        }
+      ]
+    }
+  ]
+}
