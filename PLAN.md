@@ -171,57 +171,57 @@ Day 1 (11 h) and Day 3 (11 h) are full. If Day 1 overruns, task 3.3 falls back t
 
 ## 3. AC traceability
 
-Every AC in SPEC.md v0.3 maps to the task that finally satisfies it. Status is updated as each phase closes.
+Every AC maps to the task that finally satisfies it. Status as of 2026-10-15, after Phase 9: ✅ = verified here (tests, benchmark or scripts); ⏳ = needs a live, CI or owner check (see the list after the table). Should ACs are updated in Phase 10.
 
 | AC | Priority | Satisfied by | Verified how | Status |
 |---|---|---|---|---|
-| AC-1 | Must | 4.1, 4.2 | Unit (IDs) and live manual | ☐ |
-| AC-2 | Must | 4.1, 4.2 | Unit and live manual | ☐ |
-| AC-3 | Must | 1.1, 1.3, 1.6, 4.6, 9.3 | Scan script | ☐ |
-| AC-4 | Must | 3.1–3.6, 4.3, 9.2 | Live manual | ☐ |
-| AC-5 | Must | 2.4, 2.6, 3.1, 8.2 | Unit and benchmark | ☐ |
-| AC-6 | Must | 2.5, 3.1 | Unit | ☐ |
-| AC-7 | Must | 2.5 | Unit | ☐ |
-| AC-8 | Must | 2.5 | Unit | ☐ |
-| AC-9 | Must | 3.4, 5.1, 5.7 | Unit and live timing | ☐ |
-| AC-10 | Must | 5.3, 5.4, 5.5 | Unit | ☐ |
-| AC-11 | Must | 2.7 | Unit | ☐ |
-| AC-12 | Must | 2.7, 5.5 | Unit | ☐ |
-| AC-13 | Must | 5.2, 5.6 | Unit | ☐ |
-| AC-14 | Must | 7.1 | Unit | ☐ |
-| AC-15 | Must | 7.4, 7.6, 7.7 | Unit (mocked Gemini) | ☐ |
-| AC-16 | Must | 7.5, 7.6 | Unit | ☐ |
-| AC-17 | Must (local) | 2.12, 7.9, 9.1 | Owner's machine | ☐ |
-| AC-18 | Must | 7.2 | Unit | ☐ |
-| AC-19 | Must | 6.1, 6.2 | Unit and Google Calendar manual | ☐ |
-| AC-20 | Must | 8.1, 8.2 | Benchmark run | ☐ |
-| AC-21 | Must | 8.3 | Benchmark run | ☐ |
-| AC-22 | Must | 8.3 | Benchmark run | ☐ |
-| AC-23 | Must | 8.3 | Benchmark run | ☐ |
-| AC-24 | Must | 2.9, 9.3 | `pytest` offline | ☐ |
-| AC-25 | Must | 1.2, 1.5, 1.7, 9.2 | Live manual | ☐ |
-| AC-26 | Must | 2.3, 4.4 | Unit | ☐ |
-| AC-27 | Must | 2.5, 5.4 | Unit | ☐ |
-| AC-28 | Must | 2.11 | GitHub Actions run | ☐ |
-| AC-29 | Must | 7.4, 7.6 | Unit | ☐ |
+| AC-1 | Must | 4.1, 4.2 | Unit (IDs) and live manual | ✅ pass (AppTest with in-memory storage) · ⏳ live check |
+| AC-2 | Must | 4.1, 4.2 | Unit and live manual | ✅ pass |
+| AC-3 | Must | 1.1, 1.3, 1.6, 4.6, 9.3 | Scan script | ✅ pass |
+| AC-4 | Must | 3.1–3.6, 4.3, 9.2 | Live manual | ✅ pass locally · ⏳ live ≤ 10 s check |
+| AC-5 | Must | 2.4, 2.6, 3.1, 8.2 | Unit and benchmark | ✅ pass |
+| AC-6 | Must | 2.5, 3.1 | Unit | ✅ pass |
+| AC-7 | Must | 2.5 | Unit | ✅ pass |
+| AC-8 | Must | 2.5 | Unit | ✅ pass |
+| AC-9 | Must | 3.4, 5.1, 5.7 | Unit and live timing | ✅ logic pass (unit) · ⏳ live 5-click timing |
+| AC-10 | Must | 5.3, 5.4, 5.5 | Unit | ✅ pass |
+| AC-11 | Must | 2.7 | Unit | ✅ pass |
+| AC-12 | Must | 2.7, 5.5 | Unit | ✅ pass |
+| AC-13 | Must | 5.2, 5.6 | Unit | ✅ pass |
+| AC-14 | Must | 7.1 | Unit | ✅ pass |
+| AC-15 | Must | 7.4, 7.6, 7.7 | Unit (mocked Gemini) | ✅ pass |
+| AC-16 | Must | 7.5, 7.6 | Unit | ✅ pass |
+| AC-17 | Must (local) | 2.12, 7.9, 9.1 | Owner's machine | ⏳ owner's real screenshots (tooling done; Gemini 15/15 on synthetic) |
+| AC-18 | Must | 7.2 | Unit | ✅ pass |
+| AC-19 | Must | 6.1, 6.2 | Unit and Google Calendar manual | ✅ pass (unit) · ⏳ manual Google Calendar import |
+| AC-20 | Must | 8.1, 8.2 | Benchmark run | ✅ pass |
+| AC-21 | Must | 8.3 | Benchmark run | ✅ pass |
+| AC-22 | Must | 8.3 | Benchmark run | ✅ pass |
+| AC-23 | Must | 8.3 | Benchmark run | ✅ pass |
+| AC-24 | Must | 2.9, 9.3 | `pytest` offline | ✅ pass |
+| AC-25 | Must | 1.2, 1.5, 1.7, 9.2 | Live manual | ⏳ live check after redeploy |
+| AC-26 | Must | 2.3, 4.4 | Unit | ✅ pass |
+| AC-27 | Must | 2.5, 5.4 | Unit | ✅ pass |
+| AC-28 | Must | 2.11 | GitHub Actions run | ⏳ GitHub secrets + manual run |
+| AC-29 | Must | 7.4, 7.6 | Unit | ✅ pass |
 | AC-30 | Should | 10.10 | Unit and manual | ☐ |
 | AC-31 | Should | 10.4 | Unit | ☐ |
 | AC-32 | Should | 10.8 | Unit | ☐ |
 | AC-33 | Should | 10.1 | Live manual | ☐ |
 | AC-34 | Should | 10.6 | Unit | ☐ |
 | AC-35 | Should | 10.2, 10.3, 10.7, 10.9, 10.11 | Live manual | ☐ |
-| AC-36 | Must | 7.3, 7.5, 7.8 | CI | ☐ |
-| AC-37 | Must | 1.1, 2.12, 7.8, 7.9, 9.3 | CI and scan | ☐ |
-| AC-38 | Must | 2.10, 9.3 | GitHub Actions run | ☐ |
+| AC-36 | Must | 7.3, 7.5, 7.8 | CI | ✅ determinism and markers · ⏳ Tesseract accuracy runs in CI |
+| AC-37 | Must | 1.1, 2.12, 7.8, 7.9, 9.3 | CI and scan | ✅ pass |
+| AC-38 | Must | 2.10, 9.3 | GitHub Actions run | ⏳ CI run after push |
 | AC-39 | Should | 10.5 | Unit | ☐ |
-| AC-40 | Must | 1.4, 4.1 | Unit (isolation) and `curl` with the anon key | ☐ |
-| AC-41 | Must | 4.4 | Unit | ☐ |
-| AC-42 | Must | 4.4 | Unit | ☐ |
-| AC-43 | Must | 4.5 | Unit | ☐ |
-| AC-44 | Must | 3.3 | `AppTest` | ☐ |
-| AC-45 | Must | 5.1 | Unit and `AppTest` | ☐ |
-| AC-46 | Must | 5.4 | Unit (fake clock) | ☐ |
-| AC-47 | Must | 4.6 | `AppTest` | ☐ |
+| AC-40 | Must | 1.4, 4.1 | Unit (isolation) and `curl` with the anon key | ✅ isolation (unit) · ⏳ anon-key curl check |
+| AC-41 | Must | 4.4 | Unit | ✅ pass |
+| AC-42 | Must | 4.4 | Unit | ✅ pass |
+| AC-43 | Must | 4.5 | Unit | ✅ pass |
+| AC-44 | Must | 3.3 | `AppTest` | ✅ pass |
+| AC-45 | Must | 5.1 | Unit and `AppTest` | ✅ pass |
+| AC-46 | Must | 5.4 | Unit (fake clock) | ✅ pass |
+| AC-47 | Must | 4.6 | `AppTest` | ✅ pass |
 
 **Coverage:** 47 of 47 ACs are mapped: 40 Must and 7 Should.
 
