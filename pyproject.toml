@@ -6,6 +6,9 @@ requires-python = ">=3.13,<3.14"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The repository root on sys.path, so `autoplanner` and `bench` import under plain `pytest`
+# (as CI runs it) without installing the project. `python -m pytest` only worked by accident.
+pythonpath = ["."]
 # R60: no network. Connections are allowed only to localhost. A full
 # --disable-socket also blocks the socketpair that asyncio needs on Windows.
 addopts = "--allow-hosts=127.0.0.1 -p no:cacheprovider"
