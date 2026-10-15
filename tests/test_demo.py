@@ -63,3 +63,17 @@ def test_overload_is_infeasible_at_any_time_with_a_verified_option_ac33(when):
     diagnosis = make_plan(problem, time_limit=10).diagnosis
     assert diagnosis is not None and diagnosis.total_shortfall_min > 0
     assert diagnosis.extend_options or diagnosis.cut_option
+
+
+@pytest.mark.parametrize("hhmm", [(7, 0), (10, 0), (23, 30)])
+def test_demo_has_unconfirmed_past_blocks_from_the_last_two_days_r51(hhmm):
+    from autoplanner.timegrid import event_intervals
+
+    now = datetime(2026, 10, 14, *hhmm, tzinfo=TZ)
+    state = build_demo(now)
+    start = datetime.combine(now.date() - timedelta(days=2), datetime.min.time(), TZ)
+    unconfirmed = [b for b in state.blocks if b.status == "planned" and start <= b.start < now]
+    assert len(unconfirmed) >= 5
+    busy = [iv for e in state.events for iv in event_intervals(e, start.date(), now.date())]
+    for b in state.blocks:
+        assert not any(s < b.end and b.start < e for s, e in busy), "a past block clashes with a class or blocked time"

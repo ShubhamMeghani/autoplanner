@@ -65,11 +65,14 @@ def build_demo(now: datetime) -> PlannerState:
         _task("clrs22", "Read CLRS ch. 22", "E0 251", "reading", 1.5, d(-6, 8), False, raw=1.5,
               status="completed", actual_hours=1.5, learning_eligible=True, completed_at=d(-7, 22)),
     ]
-    # Five past blocks, so "not done" can be tried right away (AC-9).
+    # Past blocks from the previous 2 days (R51). Five have no feedback yet, so a visitor can mark
+    # them done (with the time taken) or not done straight away (AC-9); one shows a done block.
+    # Mornings before 10:00 and evenings avoid every class, the gym and dinner.
     past = [
         Block("demo-dip3", d(-2, 19), d(-2, 20), status="done", actual_minutes=60, id="demo-b1"),
+        Block("demo-mapred", d(-2, 8), d(-2, 9), id="demo-b6"),
         Block("demo-dsa4", d(-2, 21), d(-2, 22, 30), id="demo-b2"),
-        Block("demo-dsa4", d(-1, 19), d(-1, 20), status="done", actual_minutes=75, id="demo-b3"),
+        Block("demo-dsa4", d(-1, 19), d(-1, 20), id="demo-b3"),
         Block("demo-prob5", d(-1, 21), d(-1, 22), id="demo-b4"),
         Block("demo-mini2", d(-1, 22), d(-1, 23), id="demo-b5"),
     ]

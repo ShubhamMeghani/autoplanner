@@ -237,3 +237,51 @@ def test_demo_extras_are_present_ac35():
     app.button(key="sample_shot").click().run()
     assert not app.exception
     assert "import_rows" in app.session_state  # rows, or a plain note when no reader is available here
+
+
+# ---------- recent blocks and click feedback (R21, R51, AC-44) ----------
+
+from datetime import datetime as _dt, timedelta as _td  # noqa: E402
+
+from autoplanner.config import TZ  # noqa: E402
+from autoplanner.ui.calendar_view import apply_click, block_choices  # noqa: E402
+
+
+def test_week_view_opens_two_days_back_and_shows_the_unconfirmed_blocks_ac44():
+    view = demo_view()
+    options = calendar_options(view)
+    first = _dt.fromisoformat(options["initialDate"]).date()
+    assert first == NOW.date() - _td(days=2)
+    assert options["firstDay"] == (first.weekday() + 1) % 7  # the visible week starts on that day
+    visible_end = _dt.combine(first + _td(days=7), _dt.min.time(), TZ)
+    unconfirmed = [b for b in view.state.blocks if b.status == "planned" and b.start < NOW]
+    assert len([b for b in unconfirmed if b.end <= visible_end and b.start.date() >= first]) >= 5
+    assert {b.id for b in unconfirmed} <= {b.id for b in block_choices(view)}  # all can be selected
+
+
+def test_a_click_selects_once_and_asks_to_scroll_ac44():
+    session = {}
+    click = {"callback": "eventClick", "eventClick": {"event": {"id": "block:b1"}}}
+    assert apply_click(click, 3, {"b1"}, session) is True
+    assert session["selected_block"] == "b1" and session.pop("scroll_to_block") is True
+    assert apply_click(click, 3, {"b1"}, session) is False  # the same click on a rerun: ignored
+    assert "scroll_to_block" not in session
+    assert apply_click({"callback": "eventClick", "eventClick": {"event": {"id": "event:x:1"}}}, 3, {"b1"}, session) is False
+    assert apply_click(click, 4, {"b1"}, session) is True  # after a replan the same block can be clicked again
+
+
+def test_selected_block_is_highlighted_and_done_updates_the_plan_ac9():
+    app = demo_app()
+    repo = app.session_state["demo_repo"]
+    version = repo.load(DEMO_PLANNER_ID).meta["plan_version"]
+    block = next(b for b in repo.load(DEMO_PLANNER_ID).blocks if b.id == "demo-b3")  # yesterday, unconfirmed
+    app.session_state["scroll_to_block"] = True  # what a calendar click sets
+    app.selectbox(key="selected_block").set_value(block.id).run()
+    assert not app.exception
+    assert "📌 Selected block" in all_text(app)
+    assert any("Selected:" in t.value for t in app.toast)
+    app.number_input(key=f"actual_{block.id}").set_value(45).run()
+    app.button(key=f"done_{block.id}").click().run()
+    state = repo.load(DEMO_PLANNER_ID)
+    assert (state.block(block.id).status, state.block(block.id).actual_minutes) == ("done", 45)
+    assert state.meta["plan_version"] == version + 1  # the plan was updated
