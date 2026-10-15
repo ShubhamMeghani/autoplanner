@@ -7,11 +7,14 @@ only the extracted text rows are kept in the session (R42).
 from __future__ import annotations
 
 from dataclasses import asdict, replace
+from datetime import datetime, time
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from autoplanner.config import MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES, TYPE_LABELS, TZ, get_secret
+from autoplanner.config import (GEMINI_DAILY_LIMIT, GEMINI_DEMO_SESSION_LIMIT, MAX_UPLOAD_BYTES,
+                                MAX_UPLOAD_FILES, TYPE_LABELS, TZ, get_secret)
 from autoplanner.importers.pipeline import ImportResult, ReviewRow, import_screenshots, import_text, rows_to_tasks
 from autoplanner.planner import PlannerService, PlanView
 from autoplanner.ui import log, run_action
@@ -31,12 +34,48 @@ def _clear() -> None:
         st.session_state.pop(key, None)
 
 
-def screenshot_section(view: PlanView, service: PlannerService, gemini_allowed: bool) -> None:
+SAMPLE = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "teams_synthetic" / "teams_1.png"
+DAILY_LIMIT_SESSION_KEY = "demo_gemini_calls"
+
+
+def gemini_budget(service: PlannerService, demo: bool) -> int:
+    """R47: Gemini reads left: 20 per planner per IST day, 10 per demo session."""
+    if demo:
+        return max(0, GEMINI_DEMO_SESSION_LIMIT - st.session_state.get(DAILY_LIMIT_SESSION_KEY, 0))
+    now = service.now()
+    midnight = datetime.combine(now.date(), time(0), TZ)
+    return max(0, GEMINI_DAILY_LIMIT - service.repo.count_gemini_calls(service.planner_id, midnight))
+
+
+def _read(images: list[bytes], import_date, view: PlanView, service: PlannerService, demo: bool) -> ImportResult:
+    result = import_screenshots(images, import_date, service.now(), view.state.tasks,
+                                api_key=get_secret("GEMINI_API_KEY"), model=get_secret("GEMINI_MODEL"),
+                                gemini_budget=gemini_budget(service, demo))
+    if demo:
+        st.session_state[DAILY_LIMIT_SESSION_KEY] = st.session_state.get(DAILY_LIMIT_SESSION_KEY, 0) + result.gemini_calls
+    else:
+        for _ in range(result.gemini_calls):
+            service.repo.log_import(service.planner_id, "gemini")
+    return result
+
+
+def screenshot_section(view: PlanView, service: PlannerService, demo: bool) -> None:
     gen = st.session_state.setdefault("uploader_gen", 0)
     import_date = st.date_input("Screenshot taken on", value=view.now.date(), key="shot_date",
                                 help="Relative dates like “Due tomorrow” are read from this date.")
     files = st.file_uploader("Teams Assignments screenshots (up to 5)", type=["png", "jpg", "jpeg", "webp"],
                              accept_multiple_files=True, key=f"uploader_{gen}")
+    if demo and SAMPLE.exists() and st.button("Try with a sample screenshot", key="sample_shot"):  # R48
+        st.image(str(SAMPLE), caption="A synthetic Teams Assignments list (fictional data)")
+        try:
+            with st.spinner("Reading…"):
+                result = _read([SAMPLE.read_bytes()], import_date, view, service, demo)
+        except Exception:
+            log.exception("sample import failed")
+            st.error("The sample couldn't be read. Nothing was changed.")
+            return
+        _store(result, "screenshot")
+        st.rerun()
     if not st.button("Read screenshots", disabled=not files, key="read_shots"):
         return
     if len(files) > MAX_UPLOAD_FILES:
@@ -49,9 +88,7 @@ def screenshot_section(view: PlanView, service: PlannerService, gemini_allowed: 
     images = [f.getvalue() for f in files]
     try:
         with st.spinner("Reading…"):
-            result = import_screenshots(images, import_date, service.now(), view.state.tasks,
-                                        api_key=get_secret("GEMINI_API_KEY"), model=get_secret("GEMINI_MODEL"),
-                                        gemini_allowed=gemini_allowed)
+            result = _read(images, import_date, view, service, demo)
     except Exception:
         log.exception("screenshot import failed")
         st.error("The screenshots couldn't be read. Nothing was changed; try again or paste the text instead.")
@@ -134,11 +171,11 @@ def review_section(service: PlannerService) -> None:
         st.rerun()
 
 
-def render(view: PlanView, service: PlannerService, gemini_allowed: bool = True) -> None:
+def render(view: PlanView, service: PlannerService, demo: bool = False) -> None:
     st.info(NOTICE)
     shot, paste = st.tabs(["Screenshot", "Paste text"])
     with shot:
-        screenshot_section(view, service, gemini_allowed)
+        screenshot_section(view, service, demo)
     with paste:
         paste_section(view, service)
     review_section(service)

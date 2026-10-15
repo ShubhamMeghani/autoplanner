@@ -144,6 +144,10 @@ def block_actions(view: PlanView, service, block_id: str) -> None:
     st.markdown(f"**{task.title}** · {fmt_dt(block.start)}–{block.end:%H:%M} · {status}")
     if block.start > view.now:
         st.caption("You can mark this block once it has started.")
+        if block.status == "planned" and st.button("Can't do this slot", key=f"cantdo_{block.id}"):  # R27
+            if run_action(lambda: service.cant_do(block.id),
+                          "That time is now blocked and the week was replanned around it."):
+                st.rerun()
         return
     left, right = st.columns(2)
     with left:
@@ -154,9 +158,11 @@ def block_actions(view: PlanView, service, block_id: str) -> None:
             if run_action(lambda: service.mark_done(block.id, int(minutes)), "Marked done."):
                 st.rerun()
     with right:
-        st.write("")
+        completed = st.number_input("Minutes completed, if any", min_value=0, max_value=block.minutes, step=5,
+                                    value=0, key=f"partial_{block.id}")  # R28
         if st.button("Not done", key=f"notdone_{block.id}"):
-            if run_action(lambda: service.mark_not_done(block.id), "Marked not done; the rest of the week was replanned."):
+            if run_action(lambda: service.mark_not_done(block.id, int(completed)),
+                          "Marked not done; the rest of the week was replanned."):
                 st.rerun()
 
 

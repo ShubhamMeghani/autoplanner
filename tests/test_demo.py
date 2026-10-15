@@ -52,3 +52,14 @@ def test_overload_toggle_adds_and_removes_tasks():
     heavy = with_overload(state, NOW, True)
     assert len(heavy.tasks) == len(state.tasks) + 2
     assert with_overload(heavy, NOW, False).tasks == state.tasks
+
+
+@pytest.mark.parametrize("when", [(0, 7, 0), (3, 12, 0), (5, 22, 45)])
+def test_overload_is_infeasible_at_any_time_with_a_verified_option_ac33(when):
+    day, hh, mm = when
+    now = datetime(2026, 10, 12, hh, mm, tzinfo=TZ) + timedelta(days=day)
+    state = with_overload(build_demo(now), now, True)
+    problem = build_problem(now, state.prefs, state.events, state.tasks, state.blocks)
+    diagnosis = make_plan(problem, time_limit=10).diagnosis
+    assert diagnosis is not None and diagnosis.total_shortfall_min > 0
+    assert diagnosis.extend_options or diagnosis.cut_option

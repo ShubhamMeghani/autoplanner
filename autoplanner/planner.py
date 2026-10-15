@@ -110,12 +110,20 @@ def _plan_from(problem: Problem, assignment: dict[str, list[int]], kind, status:
 
 def make_plan(problem: Problem, *, solve_fn=None, diagnose_fn=None,
               time_limit: float = SOLVER_TIME_LIMIT_S, workers: int = SOLVER_WORKERS,
-              plan_version: int = 0) -> PlanOutcome:
+              plan_version: int = 0, previous_blocks: list[Block] | None = None) -> PlanOutcome:
     """Strict solve; if proven infeasible, diagnose; if the solver runs out of time, greedy (R19)."""
     solve_fn = solve_fn or solver_mod.solve  # looked up at call time, so tests can stub it
     started = clock.perf_counter()
     hint = hint_plan(problem)
-    result = solve_fn(problem, "strict", time_limit=time_limit, workers=workers, hint=hint)
+    previous = None
+    if previous_blocks:  # R64: prefer keeping the slots of the previous plan
+        previous = defaultdict(set)
+        for b in previous_blocks:
+            if b.start >= problem.grid.start and b.end <= problem.grid.end:
+                first = problem.grid.index_of(to_ist(b.start))
+                previous[b.task_id].update(range(first, first + b.minutes // SLOT_MINUTES))
+    kwargs = {"previous": dict(previous)} if previous else {}
+    result = solve_fn(problem, "strict", time_limit=time_limit, workers=workers, hint=hint, **kwargs)
     elapsed = clock.perf_counter() - started
 
     if result.feasible:
@@ -251,11 +259,15 @@ class PlannerService:
     def cut_hours(self, cuts: dict[str, int]) -> PlanView:
         return self.change(lambda s, now: cut_hours(s, now, cuts))
 
+    def cant_do(self, block_id: str) -> PlanView:
+        return self.change(lambda s, now: cant_do(s, now, block_id))
+
     def _commit(self, old: PlannerState, new: PlannerState, now: datetime) -> PlanView:
         problem = build_problem(now, new.prefs, new.events, new.tasks, new.blocks)
         version = int(old.meta.get("plan_version", 0)) + 1
+        previous = [b for b in old.blocks if b.status == "planned" and b.start >= now]
         outcome = make_plan(problem, solve_fn=self.solve_fn, time_limit=self.time_limit,
-                            workers=self.workers, plan_version=version)
+                            workers=self.workers, plan_version=version, previous_blocks=previous)
         kept = [b for b in new.blocks if not (b.status == "planned" and b.start >= now)]
         final = replace(new, blocks=kept + outcome.plan.blocks,
                         meta=plan_meta(outcome, input_hash(new), version, now))
@@ -330,3 +342,16 @@ def cut_hours(state: PlannerState, now: datetime, cuts: dict[str, int]) -> Plann
             task = replace(task, est_hours=new_hours)
         state = _swap_task(state, task)
     return state
+
+
+def cant_do(state: PlannerState, now: datetime, block_id: str) -> PlannerState:
+    """R27: a future block can't happen: block that time (one-off) and plan around it."""
+    block = state.block(block_id)
+    if block is None or block.start <= now:
+        raise ValueError("only a future block can be skipped")
+    task = state.task(block.task_id)
+    start, end = to_ist(block.start), to_ist(block.end)
+    busy = Event(title=f"Can't do: {task.title if task else 'block'}", kind="blocked", start_time=start.time(),
+                 end_time=end.time(), on_date=start.date())
+    return replace(state, events=state.events + [busy],
+                   blocks=[replace(b, status="skipped") if b.id == block_id else b for b in state.blocks])

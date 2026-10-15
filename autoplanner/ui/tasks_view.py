@@ -199,6 +199,7 @@ def render(view: PlanView, service: PlannerService) -> None:
     edit_task_section(view, service)
     add_event_section(service)
     events_section(view, service)
+    insights_section(view)
 
 
 
@@ -250,3 +251,58 @@ def overdue_panel(view: PlanView, service: PlannerService) -> None:
                 hours = confirmed_minutes(task.id, view.state.blocks) / 60
                 if run_action(lambda t=task, h=hours: service.complete_task(t.id, h), f"“{task.title}” completed."):
                     st.rerun()
+
+
+# ---------- plan summary (R22) and estimate insights (R39) ----------
+
+def plan_summary_rows(view: PlanView) -> pd.DataFrame:
+    """For each open task: hours scheduled, remaining, planned finish, and slack to the deadline."""
+    beyond = set(view.meta.get("beyond_horizon", []))
+    unscheduled = view.meta.get("unscheduled_min", {}) or {}
+    rows = []
+    for task in sorted((t for t in view.state.tasks if t.status == "open"), key=lambda t: t.deadline):
+        blocks = [b for b in view.future_blocks if b.task_id == task.id]
+        scheduled = sum(b.minutes for b in blocks)
+        finish = max((b.end for b in blocks), default=None)
+        if task.id in unscheduled:
+            slack = f"{fmt_hours(unscheduled[task.id])} doesn't fit"
+        elif task.id in beyond:
+            slack = "Continues beyond this plan"
+        elif finish is not None:
+            hours = (task.deadline - finish).total_seconds() / 3600
+            slack = f"{hours:.0f} h" if hours >= 1 else f"{hours * 60:.0f} min"
+        else:
+            slack = ""
+        rows.append({"Task": task.title, "Scheduled": fmt_hours(scheduled), "Remaining": fmt_hours(view.remaining_min(task)),
+                     "Planned finish": fmt_dt(finish) if finish else "", "Deadline": fmt_dt(task.deadline),
+                     "Slack": slack})
+    return pd.DataFrame(rows)
+
+
+def insights_rows(tasks: list[Task]) -> pd.DataFrame:
+    from autoplanner.learning import correction_factor
+
+    rows = []
+    for task_type, label in TYPE_LABELS.items():
+        f = correction_factor(tasks, task_type)
+        if f.n:
+            rows.append({"Type": label, "Factor": f"{f.factor:.2f}×", "Tasks": f.n,
+                         "Actual ÷ estimate": f"{f.r:.2f}"})
+    return pd.DataFrame(rows)
+
+
+def summary_section(view: PlanView) -> None:
+    rows = plan_summary_rows(view)
+    if not rows.empty:
+        with st.expander("Plan summary", expanded=False):
+            st.dataframe(rows, hide_index=True, use_container_width=True)
+
+
+def insights_section(view: PlanView) -> None:
+    st.subheader("Estimate insights")
+    rows = insights_rows(view.state.tasks)
+    if rows.empty:
+        st.caption("Complete a few tasks (and confirm their blocks) to see how your estimates compare.")
+    else:
+        st.caption("New tasks of these types get their estimate multiplied by the factor; you can always override it.")
+        st.dataframe(rows, hide_index=True, use_container_width=True)

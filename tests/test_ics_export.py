@@ -53,3 +53,15 @@ def test_uids_are_stable_across_exports_ac19():
 
 def test_filename():
     assert filename(NOW) == "autoplanner-2026-10-14.ics"
+
+
+def test_fixed_events_can_be_included_r50():
+    from conftest import weekly
+
+    state = state_with_blocks()
+    state.events = [weekly("DSA", (2, 4), "14:00", "15:00"), weekly("Gym", (2,), "18:00", "19:00", kind="blocked")]
+    events = events_of(build_ics(state, NOW, horizon_end(NOW, 7), include_events=True))
+    titles = [str(e["summary"]) for e in events]
+    assert titles.count("DSA") == 2  # Wed and Fri inside the 7-day horizon; blocked times stay out
+    assert "Gym" not in titles
+    assert len(events_of(build_ics(state, NOW, horizon_end(NOW, 7)))) == 2

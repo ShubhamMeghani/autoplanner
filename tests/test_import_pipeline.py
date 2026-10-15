@@ -170,3 +170,22 @@ def test_type_inference_and_learned_estimates():
                          actual_hours=3.0, learning_eligible=True, completed_at=at(-5, 20)) for _ in range(3)]
     row = import_text(OCR_TEXT, IMPORT, NOW, history).rows[0]
     assert (row.estimate_raw, row.estimate) == (3.0, 4.0)  # 3 h default x 1.3 = 3.9 -> 4.0
+
+
+def test_gemini_limit_switches_to_tesseract_ac32():
+    from autoplanner.importers.pipeline import LIMIT_REACHED
+    from autoplanner.ui.import_view import gemini_budget
+
+    repo = MemoryRepo()
+    pid = repo.create_planner(Preferences())
+    for _ in range(20):
+        repo.log_import(pid, "gemini", at=NOW)
+    service = PlannerService(repo, pid, clock=lambda: NOW)
+    budget = gemini_budget(service, demo=False)
+    assert budget == 0
+    client = FakeGemini(gemini_rows())
+    result = run(client, gemini_budget=budget, ocr_fn=lambda image: OCR_TEXT, ocr_available=lambda: True)
+    assert client.calls == [] and [r.engine for r in result.rows] == [TESSERACT_FALLBACK]
+    assert LIMIT_REACHED in result.notes[0]
+    under = run(FakeGemini(gemini_rows()), gemini_budget=1)
+    assert under.gemini_calls == 1 and all(r.engine == "Gemini" for r in under.rows)

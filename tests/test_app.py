@@ -194,3 +194,46 @@ def test_paste_import_review_and_add_r44_r46():
     app.button(key="add_selected").click().run()  # refused: "Essay" has no deadline
     assert any("needs a deadline" in e.value for e in app.error)
     assert len(repo.load(DEMO_PLANNER_ID).tasks) == before
+
+
+# ---------- Should items (AC-30, AC-33, AC-35) ----------
+
+def test_delete_planner_removes_everything_ac30(memory_repo):
+    planner_id = memory_repo.create_planner(Preferences())
+    memory_repo.upsert_tasks(planner_id, [make_task("Doomed", 1)])
+    app = AppTest.from_file(APP, default_timeout=60)
+    app.query_params["p"] = planner_id
+    app.run()
+    app.checkbox(key="confirm_delete").check().run()
+    app.button(key="delete_planner").click().run()
+    assert not memory_repo.planner_exists(planner_id)
+    assert "Your planner was deleted." in all_text(app)
+    again = AppTest.from_file(APP, default_timeout=60)
+    again.query_params["p"] = planner_id
+    again.run()
+    assert [e.value for e in again.error] == ["Planner not found. Check the link, or start fresh below."]
+
+
+def test_overload_shows_verified_options_and_applying_one_clears_it_ac33():
+    app = demo_app()
+    app.toggle(key="overload").set_value(True).run()
+    assert not app.exception
+    assert "Can't fit everything before the deadlines" in all_text(app)
+    apply = [b for b in app.button if b.label == "Apply"]
+    assert apply  # at least one verified option
+    apply[0].click().run()
+    assert not app.exception
+    assert "Can't fit everything before the deadlines" not in all_text(app)
+
+
+def test_demo_extras_are_present_ac35():
+    app = demo_app()
+    assert not app.exception
+    text = all_text(app)
+    assert any(e.label == "Plan summary" for e in app.expander)
+    assert "Estimate insights" in [s.value for s in app.subheader]
+    assert any(b.label == "Try with a sample screenshot" for b in app.button)
+    assert "AutoPlanner benchmark" in text  # the Results tab
+    app.button(key="sample_shot").click().run()
+    assert not app.exception
+    assert "import_rows" in app.session_state  # rows, or a plain note when no reader is available here

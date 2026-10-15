@@ -28,6 +28,7 @@ FOCUS_TIME_S = 0.8
 BLOCKS_TIME_S = 0.5
 EARLINESS_TIME_S = 0.3
 EARLINESS_GAP = 0.10
+STABILITY_TIME_S = 0.3  # R64
 Objective = Literal["full", "feasibility"]
 
 
@@ -56,6 +57,7 @@ def solve(
     relax_deadline_of: str | None = None,
     minimize_finish_of: str | None = None,
     objective: Objective = "full",
+    previous: dict[str, set[int]] | None = None,
 ) -> SolveResult:
     """Solve one plan.
 
@@ -232,6 +234,11 @@ def solve(
             stages.insert(len(stages) - 2, cp_model.LinearExpr.sum(list(shorts.values())))
             gaps.insert(len(gaps) - 2, 0.0)
             caps.insert(len(caps) - 2, BLOCKS_TIME_S)
+        if previous is not None:  # R64: lowest goal, change as few slots of the previous plan as possible
+            kept = {(j, s) for (j, s) in x if s in previous.get(jobs[j].task_id, ())}
+            stages.append(cp_model.LinearExpr.sum([1 - x[k] for k in kept] + [v for k, v in x.items() if k not in kept]))
+            gaps.append(0.0)
+            caps.append(STABILITY_TIME_S)
 
     solver = cp_model.CpSolver()
     solver.parameters.num_workers = workers

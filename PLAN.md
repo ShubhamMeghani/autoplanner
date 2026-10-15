@@ -171,7 +171,7 @@ Day 1 (11 h) and Day 3 (11 h) are full. If Day 1 overruns, task 3.3 falls back t
 
 ## 3. AC traceability
 
-Every AC maps to the task that finally satisfies it. Status as of 2026-10-15, after Phase 9: ✅ = verified here (tests, benchmark or scripts); ⏳ = needs a live, CI or owner check (see the list after the table). Should ACs are updated in Phase 10.
+Every AC maps to the task that finally satisfies it. Status as of 2026-10-15, after Phase 9: ✅ = verified here (tests, benchmark or scripts); ⏳ = needs a live, CI or owner check (see the list after the table). Should ACs were completed in Phase 10.
 
 | AC | Priority | Satisfied by | Verified how | Status |
 |---|---|---|---|---|
@@ -204,16 +204,16 @@ Every AC maps to the task that finally satisfies it. Status as of 2026-10-15, af
 | AC-27 | Must | 2.5, 5.4 | Unit | ✅ pass |
 | AC-28 | Must | 2.11 | GitHub Actions run | ⏳ GitHub secrets + manual run |
 | AC-29 | Must | 7.4, 7.6 | Unit | ✅ pass |
-| AC-30 | Should | 10.10 | Unit and manual | ☐ |
-| AC-31 | Should | 10.4 | Unit | ☐ |
-| AC-32 | Should | 10.8 | Unit | ☐ |
-| AC-33 | Should | 10.1 | Live manual | ☐ |
-| AC-34 | Should | 10.6 | Unit | ☐ |
-| AC-35 | Should | 10.2, 10.3, 10.7, 10.9, 10.11 | Live manual | ☐ |
+| AC-30 | Should | 10.10 | Unit and manual | ✅ pass (AppTest) |
+| AC-31 | Should | 10.4 | Unit | ✅ pass |
+| AC-32 | Should | 10.8 | Unit | ✅ pass |
+| AC-33 | Should | 10.1 | Live manual | ✅ pass (AppTest + 3 times of the week) · ⏳ live look |
+| AC-34 | Should | 10.6 | Unit | ✅ pass |
+| AC-35 | Should | 10.2, 10.3, 10.7, 10.9, 10.11 | Live manual | ✅ pass (AppTest; R50 unit) |
 | AC-36 | Must | 7.3, 7.5, 7.8 | CI | ✅ determinism and markers · ⏳ Tesseract accuracy runs in CI |
 | AC-37 | Must | 1.1, 2.12, 7.8, 7.9, 9.3 | CI and scan | ✅ pass |
 | AC-38 | Must | 2.10, 9.3 | GitHub Actions run | ⏳ CI run after push |
-| AC-39 | Should | 10.5 | Unit | ☐ |
+| AC-39 | Should | 10.5 | Unit | ✅ pass |
 | AC-40 | Must | 1.4, 4.1 | Unit (isolation) and `curl` with the anon key | ✅ isolation (unit) · ⏳ anon-key curl check |
 | AC-41 | Must | 4.4 | Unit | ✅ pass |
 | AC-42 | Must | 4.4 | Unit | ✅ pass |

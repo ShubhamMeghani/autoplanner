@@ -90,3 +90,50 @@ def test_future_blocks_cannot_be_marked():
     state = PlannerState(Preferences(), tasks=[task], blocks=[future])
     with pytest.raises(ValueError):
         mark_done(state, NOW, future.id)
+
+
+# ---------- Should items: R27 (AC-31), R28 (AC-39), R64 (AC-34) ----------
+
+from dataclasses import replace as _replace  # noqa: E402
+
+from autoplanner.planner import cant_do, mark_not_done  # noqa: E402
+from autoplanner.storage import MemoryRepo  # noqa: E402
+
+
+def test_cant_do_blocks_the_slot_and_replans_around_it_ac31():
+    repo = MemoryRepo()
+    pid = repo.create_planner(Preferences())
+    service = PlannerService(repo, pid, clock=lambda: NOW)
+    view = service.change(lambda s, now: _replace(s, tasks=[make_task("A", 4, at(2, 23, 59))]))
+    block = next(b for b in view.future_blocks if b.start > NOW)  # one that has not started
+    view = service.cant_do(block.id)
+    blocked = [e for e in view.state.events if e.kind == "blocked"]
+    assert len(blocked) == 1 and blocked[0].on_date == block.start.date()
+    assert (blocked[0].start_time, blocked[0].end_time) == (block.start.time(), block.end.time())
+    assert all(not (b.start < block.end and block.start < b.end) for b in view.future_blocks)
+    assert sum(b.minutes for b in view.future_blocks) == 240
+
+
+def test_partial_minutes_return_only_the_rest_ac39():
+    from autoplanner.models import PlannerState
+    task = make_task("A", 3, at(2, 23, 59))
+    block = Block(task.id, at(0, 8), at(0, 9))  # 60 minutes, started
+    state = PlannerState(Preferences(), tasks=[task], blocks=[block])
+    before = remaining_minutes(task, state.blocks, NOW)  # unconfirmed: counted as done
+    after_state = mark_not_done(state, NOW, block.id, minutes_completed=30)
+    after = remaining_minutes(task, after_state.blocks, NOW)
+    assert after - before == 30  # exactly the unfinished 30 minutes come back
+    assert after_state.block(block.id).actual_minutes == 30
+
+
+def test_replanning_an_unchanged_instance_keeps_the_plan_ac34():
+    repo = MemoryRepo()
+    pid = repo.create_planner(Preferences())
+    service = PlannerService(repo, pid, clock=lambda: NOW)
+    tasks = [make_task("A", 3, at(1, 23, 59)), make_task("B", 2, at(2, 23, 59), type="reading")]
+    first = service.change(lambda s, now: _replace(s, tasks=tasks))
+    before = sorted((b.task_id, b.start, b.end) for b in first.future_blocks)
+    second = service.replan()
+    after = sorted((b.task_id, b.start, b.end) for b in second.future_blocks)
+    assert after == before
+    assert second.meta["plan_version"] == first.meta["plan_version"] + 1

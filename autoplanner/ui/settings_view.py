@@ -10,6 +10,7 @@ import streamlit as st
 from autoplanner.config import MAX_HORIZON_DAYS
 from autoplanner.models import Preferences, validate_prefs
 from autoplanner.planner import PlannerService, PlanView
+from autoplanner.storage import StorageUnavailable
 from autoplanner.ui import run_action
 
 LINK_WARNING = ("Anyone with this link can view and edit your planner. "
@@ -25,7 +26,28 @@ def render(view: PlanView, service: PlannerService, link: str | None = None) -> 
     if link:
         st.subheader("Your private link")
         show_link(link)
+    prefs_section(view, service)
+    if link:
+        delete_section(service)
 
+
+def delete_section(service: PlannerService) -> None:
+    """R8: delete everything, after an explicit confirmation."""
+    st.subheader("Delete my planner")
+    confirm = st.checkbox("I understand this permanently deletes my tasks, classes, blocked times and plan.",
+                          key="confirm_delete")
+    if st.button("Delete my planner", disabled=not confirm, key="delete_planner"):
+        try:
+            service.repo.delete_planner(service.planner_id)
+        except StorageUnavailable:
+            st.error("Couldn't delete: storage is unavailable right now. Please retry.")
+            return
+        st.query_params.clear()
+        st.session_state["landing_message"] = "Your planner was deleted."
+        st.rerun()
+
+
+def prefs_section(view: PlanView, service: PlannerService) -> None:
     prefs = view.state.prefs
     st.subheader("Preferences")
     windows = list(prefs.focus_windows) + [(None, None)] * (3 - len(prefs.focus_windows))

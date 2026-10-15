@@ -43,6 +43,9 @@ class ReviewRow:
 class ImportResult:
     rows: list[ReviewRow]
     notes: list[str] = field(default_factory=list)  # plain-language messages for the user
+    gemini_calls: int = 0  # for the R47 daily limit
+
+LIMIT_REACHED = "The limit for Gemini reads was reached (20 a day per planner, 10 per demo session)."
 
 
 def infer_type(title: str) -> str:
@@ -90,7 +93,7 @@ def build_rows(raw_rows: list[RawRow], import_date: date, now: datetime, existin
 
 def import_screenshots(images: list[bytes], import_date: date, now: datetime, existing: list[Task], *,
                        api_key: str | None, model: str | None, gemini_allowed: bool = True,
-                       gemini_client=None, ocr_fn: Callable[[bytes], str] | None = None,
+                       gemini_budget: int | None = None, gemini_client=None, ocr_fn: Callable[[bytes], str] | None = None,
                        ocr_available: Callable[[], bool] = tesseract_available) -> ImportResult:
     """Read each image with Gemini, or with Tesseract when Gemini can't be used (R41)."""
     ocr_fn = ocr_fn or ocr_text
@@ -103,8 +106,11 @@ def import_screenshots(images: list[bytes], import_date: date, now: datetime, ex
             result.notes.append(f"{label}: {exc}")
             continue
         reason = None
-        if gemini_allowed:
+        within_budget = gemini_budget is None or result.gemini_calls < gemini_budget
+        if gemini_allowed and within_budget:
             try:
+                if api_key and model:
+                    result.gemini_calls += 1
                 raw = gemini_vision.extract_rows(image, api_key=api_key, model=model, client=gemini_client)
                 result.rows += build_rows(raw, import_date, now, existing, GEMINI)
                 continue
@@ -112,8 +118,10 @@ def import_screenshots(images: list[bytes], import_date: date, now: datetime, ex
                 reason = str(exc)
             except Exception as exc:  # never let an unexpected client error escape (R35)
                 reason = gemini_vision.explain(exc)
+        elif not within_budget:
+            reason = LIMIT_REACHED
         else:
-            reason = "The daily limit for Gemini reads was reached."
+            reason = "Gemini reading is turned off."
         if not ocr_available():
             result.notes.append(f"{label}: {reason} Tesseract isn't installed either, so it couldn't be read.")
             continue

@@ -77,10 +77,11 @@ def build_demo(now: datetime) -> PlannerState:
 
 
 def overload_tasks(now: datetime) -> list[Task]:
-    """R53: extra work that cannot fit before its deadlines."""
+    """R53: extra work that cannot fit before its deadlines, at any time of day: 18 h due tomorrow
+    night is more than two days of the 8 h daily cap."""
     today = now.astimezone(TZ).date()
     return [
-        _task("ov1", "Surprise assignment: dynamic programming", "E0 251", "assignment", 10,
+        _task("ov1", "Surprise assignment: dynamic programming", "E0 251", "assignment", 18,
               _at(today, 1, 23, 59), True),
         _task("ov2", "Extra problem set (re-submission)", "MA 261", "assignment", 6,
               _at(today, 2, 12), True),
