@@ -48,11 +48,11 @@ def landing(message: str | None = None) -> None:
              "hours, and big tasks are split into chunks. When a block doesn't happen, the rest of "
              "the week is replanned instantly.")
     left, right = st.columns(2)
-    if left.button("Try the demo", type="primary", use_container_width=True):
+    if left.button("Try the demo", type="primary", width="stretch"):
         st.query_params.clear()
         st.query_params["demo"] = "1"
         st.rerun()
-    if right.button("Create my planner", use_container_width=True):
+    if right.button("Create my planner", width="stretch"):
         create_planner()
 
 

@@ -176,7 +176,7 @@ def review_section(service: PlannerService) -> None:
     st.subheader("Review before adding")
     st.caption("Nothing is saved until you click “Add selected tasks”. Check the rows marked ⚠ or ✖ first.")
     edited = st.data_editor(
-        _frame(rows), key="review_editor", hide_index=True, use_container_width=True, num_rows="fixed",
+        _frame(rows), key="review_editor", hide_index=True, width="stretch", num_rows="fixed",
         disabled=["Date check", "Source text", "Engine"],
         column_config={
             "Include": st.column_config.CheckboxColumn(),

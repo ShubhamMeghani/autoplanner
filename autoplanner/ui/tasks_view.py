@@ -194,7 +194,7 @@ def render(view: PlanView, service: PlannerService) -> None:
     if rows.empty:
         st.caption("No tasks yet.")
     else:
-        st.dataframe(rows, hide_index=True, use_container_width=True)
+        st.dataframe(rows, hide_index=True, width="stretch")
     add_task_section(view, service)
     edit_task_section(view, service)
     add_event_section(service)
@@ -295,7 +295,7 @@ def summary_section(view: PlanView) -> None:
     rows = plan_summary_rows(view)
     if not rows.empty:
         with st.expander("Plan summary", expanded=False):
-            st.dataframe(rows, hide_index=True, use_container_width=True)
+            st.dataframe(rows, hide_index=True, width="stretch")
 
 
 def insights_section(view: PlanView) -> None:
@@ -305,4 +305,4 @@ def insights_section(view: PlanView) -> None:
         st.caption("Complete a few tasks (and confirm their blocks) to see how your estimates compare.")
     else:
         st.caption("New tasks of these types get their estimate multiplied by the factor; you can always override it.")
-        st.dataframe(rows, hide_index=True, use_container_width=True)
+        st.dataframe(rows, hide_index=True, width="stretch")
