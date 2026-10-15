@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Draft v0.8 |
+| Status | Draft v0.9 |
 | Date | 2026-10-15 |
 | Owner | Shubham Meghani |
 | Build budget | 3 days |
@@ -228,7 +228,7 @@ Success means three things:
 | R63 | Must | THE SYSTEM SHALL include a GitHub Actions workflow, `.github/workflows/supabase-keepalive.yml`, that keeps the Supabase project from pausing:<br>• It runs on schedule `0 3 */3 * *` (03:00 UTC every third day of the month, never more than 3 days apart) and on manual dispatch.<br>• Each run sends one read request to the Supabase REST API (`GET {SUPABASE_URL}/rest/v1/planners?select=id&limit=1`), using `SUPABASE_URL` and `SUPABASE_KEY` from GitHub Actions encrypted secrets.<br>• The run fails if the response is not HTTP 200.<br>• It SHALL NOT print the response body or any secret.<br>The README SHALL explain how to re-enable the workflow, because GitHub disables scheduled workflows in a public repo after 60 days with no repository activity. |
 | R65 | Must | THE SYSTEM SHALL keep real Teams screenshots and their ground-truth labels only in the git-ignored folder `private/teams/` (`*.png` and `labels.json`):<br>• `.gitignore` SHALL list `private/`.<br>• No test collected by `pytest` SHALL read from `private/`.<br>• `bench/eval_import.py` reads `private/teams/` by default and accepts `--dir` to point at another folder. When the folder is missing, it SHALL exit 0 with "skipped: private fixtures not present". |
 | R66 | Must | THE SYSTEM SHALL include a deterministic generator, `tests/fixtures/make_synthetic_screenshots.py`. It SHALL render ≥ 3 PNGs that imitate the Teams Assignments list layout (title, course, due line) from fictional sample data, plus a `labels.json` with the expected rows:<br>• The due lines SHALL cover relative words, weekday names (including the ambiguous same-day case), month-day without a year, and explicit dates, against a fixed import date.<br>• Each PNG SHALL carry the PNG text chunk `autoplanner-synthetic=1`.<br>• Only the generator's output is committed under `tests/fixtures/teams_synthetic/`. |
-| R67 | Must | THE SYSTEM SHALL include a GitHub Actions CI workflow, `.github/workflows/ci.yml`. It runs on every push and pull request, sets up Python 3.13, installs `tesseract-ocr`, installs `requirements.txt` and `requirements-dev.txt`, and runs `pytest`. It needs no secrets. |
+| R67 | Must | THE SYSTEM SHALL include a GitHub Actions CI workflow, `.github/workflows/ci.yml`. It runs on every push and pull request on a pinned `ubuntu-24.04` runner, sets up Python 3.13, installs `tesseract-ocr`, installs `requirements.txt` and `requirements-dev.txt`, and runs plain `pytest` from the repository root. The project is importable without being installed: pytest's `pythonpath` setting in `pyproject.toml` puts the repository root on the import path. It needs no secrets. |
 
 ## 6. Acceptance criteria
 
@@ -433,3 +433,4 @@ All Must criteria are completed first. Should items start only after every Must 
 | 0.6 | 2026-10-15 | Shubham Meghani (with Claude) | R16: the soft goals are solved lexicographically, one after another, instead of as one weighted sum. Fewer blocks gets ≤ 3 s, and earlier completion gets ≤ 1 s with a 10 % gap; it is now measured in day offsets rather than block end slots. Reason: on demo weeks the weighted model could not be proven optimal within the 10 s limit, which broke AC-4, AC-9 and AC-23. The plan found in 0.5 s was as good as the one after 10 s. No AC target changed. |
 | 0.7 | 2026-10-15 | Shubham Meghani (with Claude) | D-21: per-goal time caps for R16 and a complete, rule-respecting starting plan for CP-SAT. D-22: ρ and the 90 % rule count capacity with the daily cap. No AC target changed. |
 | 0.8 | 2026-10-15 | Shubham Meghani (with Claude) | D-23: in the benchmark's minimum-lateness mode the min block length is a soft goal (consistent with D-12); R56 updated. No AC target changed. |
+| 0.9 | 2026-10-15 | Shubham Meghani (with Claude) | R67: CI is pinned to `ubuntu-24.04` and runs plain `pytest`. The package is importable through pytest's `pythonpath` setting. CI had failed with `No module named 'autoplanner'`; local runs used `python -m pytest`, which hid the problem. |
