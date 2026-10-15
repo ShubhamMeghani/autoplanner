@@ -92,7 +92,7 @@ def generate(out_dir: Path) -> list[Path]:
         paths.append(path)
         labels["images"].append({"file": path.name, "rows": [
             {"title": t, "course": c, "due_text": d, "deadline": dl} for t, c, d, dl in rows]})
-    (out_dir / "labels.json").write_text(json.dumps(labels, indent=2) + "\n", encoding="utf-8")
+    (out_dir / "labels.json").write_text(json.dumps(labels, indent=2) + "\n", encoding="utf-8", newline="\n")
     return paths
 
 
