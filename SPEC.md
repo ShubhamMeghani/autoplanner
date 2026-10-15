@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Draft v0.10 |
+| Status | Draft v0.11 |
 | Date | 2026-10-15 |
 | Owner | Shubham Meghani |
 | Build budget | 3 days |
@@ -186,6 +186,7 @@ Success means three things:
 | R46 | Must | WHEN the user submits pasted text, THE SYSTEM SHALL parse it with a deterministic rule-based parser and show the same review table. The parser accepts the Teams list copy-paste layout (title line, course line, due line). It also accepts single-line `title <sep> due text` entries, where `<sep>` is `—`, `–`, ` - `, `\|` or a tab. |
 | R47 | Should | THE SYSTEM SHALL allow at most 20 Gemini calls per planner per IST day and 10 per browser session in demo mode. Beyond the limit it SHALL use Tesseract and say so. |
 | R48 | Should | WHILE in demo mode, THE SYSTEM SHALL offer a "Try with a sample screenshot" button that runs the import pipeline on one of the synthetic screenshots (R66). It SHALL never use a real one. |
+| R68 | Must | WHEN the user clicks the "Paste your screenshot here (Ctrl+V)" area on the Import tab and presses Ctrl+V with an image on the clipboard, THE SYSTEM SHALL take the image from the browser's paste event (no clipboard permission needed in Chrome, Edge, Firefox or Brave) and send it through the same pipeline as an uploaded screenshot: Gemini, the Tesseract fallback and the review table (R40–R45), with the same type and size limits (PNG, JPEG or WebP, ≤ 10 MB). A pasted image SHALL never be stored (R42).<br>• The area SHALL show the tip "Press Windows+Shift+S, select the Assignments list, then click here and press Ctrl+V."<br>• WHERE the browser offers the asynchronous Clipboard API, THE SYSTEM SHALL also show a "Paste from clipboard" button; elsewhere it SHALL say to use Ctrl+V instead.<br>• The file upload option SHALL remain.<br>• IF the clipboard has no image, or the image has the wrong type or is too large, THEN THE SYSTEM SHALL say so in plain words and change nothing. |
 
 ### 5.8 Export
 
@@ -276,6 +277,7 @@ Each criterion either passes or fails. "Demo data" means the R51 data set. "Vali
 | AC-45 | Must | Marking a block done with 75 actual minutes stores `done`, confirmed, and 75 minutes. Marking one done with no value stores its planned length. A past block marked done no longer shows the "unconfirmed" badge. | R24 |
 | AC-46 | Must | Unit test with a fake clock where each solve takes 4 s: diagnosis starts no solve after 15 s have passed. It returns the options found so far and the best-effort plan, with `cut_short = true`. | R34 |
 | AC-47 | Must | App test (Streamlit `AppTest`): the solver, the storage and the Gemini client are each stubbed in turn to raise an exception. Each time, the page shows a plain-language message, the rendered page contains no "Traceback", and the previous tasks and plan are unchanged. | R35 |
+| AC-48 | Must | Unit tests:<br>• a PNG sent by the paste area as a data URL decodes to exactly the original bytes;<br>• non-image types, invalid base64, malformed payloads and images over 10 MB are rejected with a plain message;<br>• the decoded image goes through the same pipeline as an upload: Gemini rows labelled "Gemini", or "Tesseract (fallback)" rows when Gemini can't be used;<br>• after a pasted import, no image bytes remain in the repository or in the returned state.<br>**Manual**, on the live app in Chrome, Edge, Firefox and Brave: Windows+Shift+S, then clicking the area and pressing Ctrl+V produces review rows. The "Paste from clipboard" button works where it is shown. | R42, R68 |
 | AC-39 | Should | Marking a 60-minute block not done with 30 minutes completed counts 30 minutes as done and returns exactly 30 minutes to the task's remaining work. | R28 |
 | AC-30 | Should | After "Delete my planner" is confirmed, the planner has 0 rows in every table, and its old link shows "Planner not found". | R8 |
 | AC-31 | Should | Marking a future block "can't do this slot" creates a one-off blocked time over that block, and the new plan has no task work in it. | R27 |
@@ -376,6 +378,7 @@ Building any file not listed here needs a changelog entry first.
 | `autoplanner/ui/calendar_view.py` | Calendar and block actions |
 | `autoplanner/ui/tasks_view.py` | Manual entry, the task / event tables, the mark-complete prompt |
 | `autoplanner/ui/import_view.py` | Screenshot and paste import, review table with the Date check column |
+| `autoplanner/ui/clipboard_paste.py` | Paste-a-screenshot component: browser paste event plus an optional Clipboard API button; decodes and checks the pasted image (R68) |
 | `autoplanner/ui/settings_view.py` | Preferences, delete planner |
 | `autoplanner/ui/results_view.py` | Benchmark results page (Should) |
 | `db/schema.sql` | Tables `planners`, `events`, `tasks`, `blocks`, `import_log`; RLS enabled, no anon policies |
@@ -435,3 +438,4 @@ All Must criteria are completed first. Should items start only after every Must 
 | 0.8 | 2026-10-15 | Shubham Meghani (with Claude) | D-23: in the benchmark's minimum-lateness mode the min block length is a soft goal (consistent with D-12); R56 updated. No AC target changed. |
 | 0.9 | 2026-10-15 | Shubham Meghani (with Claude) | R67: CI is pinned to `ubuntu-24.04` and runs plain `pytest`. The package is importable through pytest's `pythonpath` setting. CI had failed with `No module named 'autoplanner'`; local runs used `python -m pytest`, which hid the problem. |
 | 0.10 | 2026-10-15 | Shubham Meghani (with Claude) | R21: the week view opens 2 days before today, and clicking a block confirms the selection, scrolls to its details and highlights them. R51: the demo has ≥ 5 past blocks from the previous 2 days with no feedback. AC-44 extended. Reason: live, the past blocks were hidden behind "‹", so AC-9 couldn't be checked. |
+| 0.11 | 2026-10-16 | Shubham Meghani (with Claude) | New R68 (Must): paste a screenshot from the clipboard (Ctrl+V) on the Import tab, using the browser paste event, into the same import pipeline, never stored; optional Clipboard API button. New AC-48. Output file `autoplanner/ui/clipboard_paste.py`. Reason: most users take screenshots with Windows+Shift+S and never save a file. |
