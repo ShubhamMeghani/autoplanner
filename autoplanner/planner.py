@@ -14,7 +14,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 
 from autoplanner import solver as solver_mod
-from autoplanner.baseline import greedy_plan
+from autoplanner.baseline import greedy_plan, hint_plan
 from autoplanner.config import SLOT_MINUTES, SOLVER_TIME_LIMIT_S, SOLVER_WORKERS, TZ
 from autoplanner.models import Block, Diagnosis, Event, Plan, PlannerState, Preferences, Task
 from autoplanner.solver import blocks_from_assignment
@@ -114,7 +114,7 @@ def make_plan(problem: Problem, *, solve_fn=None, diagnose_fn=None,
     """Strict solve; if proven infeasible, diagnose; if the solver runs out of time, greedy (R19)."""
     solve_fn = solve_fn or solver_mod.solve  # looked up at call time, so tests can stub it
     started = clock.perf_counter()
-    hint = greedy_plan(problem)
+    hint = hint_plan(problem)
     result = solve_fn(problem, "strict", time_limit=time_limit, workers=workers, hint=hint)
     elapsed = clock.perf_counter() - started
 
@@ -134,7 +134,7 @@ def make_plan(problem: Problem, *, solve_fn=None, diagnose_fn=None,
         return PlanOutcome(diagnosis.best_effort, diagnosis, check, problem)
 
     # UNKNOWN / MODEL_INVALID: show the quick greedy plan (R19).
-    plan, check = _plan_from(problem, hint, "greedy", "GREEDY", plan_version,
+    plan, check = _plan_from(problem, greedy_plan(problem), "greedy", "GREEDY", plan_version,
                              clock.perf_counter() - started, fallback=True)
     return PlanOutcome(plan, None, check, problem)
 

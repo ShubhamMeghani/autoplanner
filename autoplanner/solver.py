@@ -19,14 +19,15 @@ from autoplanner.timegrid import Problem
 
 Mode = Literal["strict", "shortfall", "lateness"]
 
-# The lowest-priority goal (earlier days) gets at most EARLINESS_TIME_S and stops within 10 %
-# of its bound. Its lower bound is weak: on realistic weeks the plan found in 0.5 s was as good
-# as the one after 10 s, but proving it took longer than the whole time limit. The goals above
-# it (deadlines, focus windows, fewer blocks) are always solved to proven optimality first.
+# Time caps per goal (R16, D-21). Each goal gets at most this long before its best plan so far
+# is fixed and the next goal starts. The lower goals have weak bounds: plans found within these
+# caps were as good as plans found in 10 s, but proving them optimal took longer than the whole
+# limit. The minimum-shortfall goal of diagnosis is never capped: R29 needs H exactly.
+LATENESS_TIME_S = 1.5
+FOCUS_TIME_S = 0.8
+BLOCKS_TIME_S = 0.5
+EARLINESS_TIME_S = 0.3
 EARLINESS_GAP = 0.10
-EARLINESS_TIME_S = 1.0
-# Fewer blocks: usually proven in < 0.5 s, but finding the minimum took 4-5 s on a few weeks.
-BLOCKS_TIME_S = 3.0
 Objective = Literal["full", "feasibility"]
 
 
@@ -108,7 +109,11 @@ def solve(
                 model.add(sum(x[j, t] for t in window) <= max_block)
 
     # Block starts (for R14.5 and the fragmentation goal).
+    # R14.5 is hard in strict and shortfall mode. In lateness mode the plan is best-effort, and
+    # D-12/D-23 count short blocks instead of forbidding them: they become a soft goal.
+    soft_min_block = mode == "lateness"
     starts = {}
+    shorts: dict[tuple[int, int], cp_model.IntVar] = {}
     for j, slots in enumerate(allowed):
         min_block = jobs[j].min_block
         for s in slots:
@@ -121,7 +126,19 @@ def solve(
                 model.add(st >= x[j, s] - prev)
                 model.add(st <= x[j, s])
                 model.add(st <= 1 - prev)
-            for k in range(1, min_block):  # R14.5: a block that starts here is >= min_block long
+            if min_block <= 1:
+                continue
+            if soft_min_block:
+                short = model.new_bool_var(f"sh{j}_{s}")  # 1 if a block starts here and is too short
+                shorts[j, s] = short
+                for k in range(1, min_block):
+                    nxt = x.get((j, s + k))
+                    if nxt is None:
+                        model.add(short >= st)
+                        break
+                    model.add(short >= st - nxt)
+                continue
+            for k in range(1, min_block):  # a block that starts here is >= min_block long
                 nxt = x.get((j, s + k))
                 if nxt is None:
                     model.add(st == 0)
@@ -143,10 +160,14 @@ def solve(
     for day, vars_ in per_day.items():
         model.add(sum(vars_) <= max(0, problem.day_cap.get(day, 0)))
 
+    finish_vars: dict[int, list] = defaultdict(list)  # job -> finish variables (for complete hints)
+    late_vars: dict[int, cp_model.IntVar] = {}
+
     def finish_var(j: int, name: str):
         f = model.new_int_var(0, grid.n, name)
         for s in allowed[j]:
             model.add(f >= s + 1).only_enforce_if(x[j, s])
+        finish_vars[j].append(f)
         return f
 
     finish_target = None
@@ -158,26 +179,47 @@ def solve(
     if mode == "shortfall":
         primary = cp_model.LinearExpr.sum(list(shortfall_vars.values()))
     elif mode == "lateness":
-        lateness = []
         for j, job in enumerate(jobs):
             if job.deadline_slot >= grid.n or not allowed[j]:
                 continue
             late = model.new_int_var(0, grid.n, f"late{j}")
             model.add(late >= finish_var(j, f"f{j}") - job.deadline_slot)
-            lateness.append(late)
-        primary = cp_model.LinearExpr.sum(lateness)
+            late_vars[j] = late
+        primary = cp_model.LinearExpr.sum(list(late_vars.values()))
     elif finish_target is not None:
         primary = finish_target
+
+    def add_full_hint(xv: dict[tuple[int, int], int]) -> None:
+        """Hint every variable, not just x: with several workers CP-SAT otherwise often fails
+        to complete a partial hint and starts from a much worse plan."""
+        for key, var in x.items():
+            model.add_hint(var, xv[key])
+        for (j, s), st in starts.items():
+            model.add_hint(st, 1 if xv[j, s] and not xv.get((j, s - 1), 0) else 0)
+        for (j, s), short in shorts.items():
+            starts_here = xv[j, s] and not xv.get((j, s - 1), 0)
+            run = 0
+            while starts_here and xv.get((j, s + run), 0):
+                run += 1
+            model.add_hint(short, 1 if starts_here and run < jobs[j].min_block else 0)
+        for j, u in shortfall_vars.items():
+            model.add_hint(u, max(0, jobs[j].required - sum(xv[j, s] for s in allowed[j])))
+        for j, fs in finish_vars.items():
+            finish = max((s + 1 for s in allowed[j] if xv[j, s]), default=0)
+            for f in fs:
+                model.add_hint(f, finish)
+            if j in late_vars:
+                model.add_hint(late_vars[j], max(0, finish - jobs[j].deadline_slot))
 
     # R16: goals in strict priority order, solved lexicographically. Each goal is minimised,
     # then fixed at its value before the next one. One weighted sum of all three goals could
     # not be proven optimal within the time limit on realistic weeks.
     stages = [primary] if primary is not None else []
     gaps = [0.0] * len(stages)
-    caps = [float("inf")] * len(stages)
+    caps = [LATENESS_TIME_S if mode == "lateness" else float("inf")] * len(stages)
     if objective == "full":
         gaps += [0.0, 0.0, EARLINESS_GAP]
-        caps += [float("inf"), BLOCKS_TIME_S, EARLINESS_TIME_S]
+        caps += [FOCUS_TIME_S, BLOCKS_TIME_S, EARLINESS_TIME_S]
         day0 = grid.day_of[0] if grid.n else None
         stages += [
             cp_model.LinearExpr.sum([var for (j, s), var in x.items()
@@ -186,10 +228,15 @@ def solve(
             cp_model.LinearExpr.weighted_sum(list(x.values()),  # earlier days
                                              [(grid.day_of[s] - day0).days for (j, s) in x]),
         ]
+        if shorts:  # lateness mode: fewest short blocks, right after the focus goal
+            stages.insert(len(stages) - 2, cp_model.LinearExpr.sum(list(shorts.values())))
+            gaps.insert(len(gaps) - 2, 0.0)
+            caps.insert(len(caps) - 2, BLOCKS_TIME_S)
 
     solver = cp_model.CpSolver()
     solver.parameters.num_workers = workers
     solver.parameters.random_seed = 7
+    # Not repair_hint: with several workers it crashes the process (OR-Tools 9.15 check failure).
     deadline = started + max(0.05, time_limit)
     best: dict | None = None
     overall = "OPTIMAL"
@@ -197,14 +244,17 @@ def solve(
     def run(hint_values: dict | None, cap: float) -> str:
         model.clear_hints()
         if hint_values is not None:
-            for key, var in x.items():
-                model.add_hint(var, hint_values[key])
+            add_full_hint(hint_values)
         elif hint:
             hinted = {job.task_id: set(hint.get(job.task_id, ())) for job in jobs}
-            for (j, s), var in x.items():
-                model.add_hint(var, 1 if s in hinted[jobs[j].task_id] else 0)
+            add_full_hint({(j, s): int(s in hinted[jobs[j].task_id]) for (j, s) in x})
         solver.parameters.max_time_in_seconds = min(cap, max(0.05, deadline - clock.perf_counter()))
-        return solver.status_name(solver.solve(model))
+        status = solver.status_name(solver.solve(model))
+        if status == "UNKNOWN" and best is None and deadline - clock.perf_counter() > 0.05:
+            # No plan at all within the cap: keep searching with the rest of the time limit.
+            solver.parameters.max_time_in_seconds = max(0.05, deadline - clock.perf_counter())
+            status = solver.status_name(solver.solve(model))
+        return status
 
     proven = 0
     for expr, gap, cap in zip(stages or [None], gaps or [0.0], caps or [float("inf")]):
@@ -220,18 +270,15 @@ def solve(
             extra = {"short": {j: solver.value(u) for j, u in shortfall_vars.items()},
                      "finish": solver.value(finish_target) if finish_target is not None else None}
             if status == "FEASIBLE":
-                overall = "FEASIBLE"
+                overall = "FEASIBLE"  # this goal ran out of its time: fix its best value and go on
             else:
                 proven += 1
             if expr is not None:
                 model.add(expr <= round(solver.objective_value))
-            if status == "FEASIBLE":
-                break  # out of time for this goal; keep the best plan found so far
         elif best is None:
             return SolveResult(status, seconds=clock.perf_counter() - started)
         else:
-            overall = "FEASIBLE"
-            break
+            overall = "FEASIBLE"  # nothing better for this goal in its time: keep the plan, go on
 
     result = SolveResult(overall, proven_goals=proven, total_goals=len(stages),
                          seconds=clock.perf_counter() - started)

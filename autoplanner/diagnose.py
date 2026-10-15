@@ -58,7 +58,7 @@ def diagnose(problem: Problem, *, solve_fn=None, time_limit: float = SOLVER_TIME
     if result.feasible:
         assignment, kind, status = result.assignment, "best_effort", result.status
     else:  # could not even solve the relaxed model in time: fall back to greedy
-        assignment, kind, status = (hint or greedy_plan(problem)), "greedy", "GREEDY"
+        assignment, kind, status = greedy_plan(problem), "greedy", "GREEDY"
     short_slots = {job.task_id: job.required - len([s for s in assignment.get(job.task_id, [])
                                                      if s < job.deadline_slot])
                    for job in problem.jobs}
