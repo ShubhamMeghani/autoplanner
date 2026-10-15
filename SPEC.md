@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Draft v0.6 |
+| Status | Draft v0.7 |
 | Date | 2026-10-15 |
 | Owner | Shubham Meghani |
 | Build budget | 3 days |
@@ -99,7 +99,7 @@ Success means three things:
 - **Available slot**: a slot inside the horizon, at or after "now", at or after day start, before "no work at/after", and not overlapping any fixed event or blocked time.
 - **Feasible**: every hard constraint in R14 can be satisfied at the same time.
 - **Instant**: the updated calendar renders ≤ 5 s after the user's click for a workload of ≤ 25 tasks over a 7-day horizon.
-- **Load ratio ρ**: the largest value, over all deadlines *d*, of (work due by *d*) ÷ (available slots before *d*).
+- **Load ratio ρ**: the largest value, over all deadlines *d*, of (work due by *d*) ÷ (capacity before *d*), where capacity counts available slots with each day capped at the max work per day (D-22).
 
 ## 5. Requirements (EARS)
 
@@ -132,7 +132,7 @@ Success means three things:
 |---|---|---|
 | R14 | Must | WHEN a plan is computed, THE SYSTEM SHALL build the slot grid from "now" (rounded up to the next slot, IST) to 24:00 on the last horizon day. It SHALL enforce these **hard constraints**:<br>1. Task slots are placed only in available slots.<br>2. At most one task occupies a slot.<br>3. Every task whose deadline is inside the horizon gets all of its remaining work in slots that end at or before its deadline. Every task due after the horizon gets its pro-rata share (R17) before the horizon end.<br>4. No block is longer than the max block length.<br>5. Every block is at least min(min block length, the work required in this plan) long.<br>6. Task work on any calendar day does not exceed the max work per day. This includes work already done or planned earlier that day. |
 | R15 | Must | WHEN a task's remaining work is longer than the max block length, THE SYSTEM SHALL split the task into several blocks, each within the min and max block lengths. |
-| R16 | Must | WHEN a plan is computed, THE SYSTEM SHALL optimise these soft goals in strict priority order, **solved one after another** (each goal is minimised, then fixed at its value before the next):<br>1. Demanding-task slots placed inside focus windows (minimise the slots outside them). Always solved to proven optimality.<br>2. Fewer blocks (minimise fragmentation). Gets at most 3 s.<br>3. Earlier completion: minimise the sum, over work slots, of their day offset from today, which leaves buffer before deadlines. Gets at most 1 s, and may stop within 10 % of its lower bound.<br>Goals 2 and 3 may therefore be near-optimal rather than proven optimal; the benchmark reports how often each was proven (R57). Stability on replan is a lower-priority goal; see R64. |
+| R16 | Must | WHEN a plan is computed, THE SYSTEM SHALL optimise these soft goals in strict priority order, **solved one after another** (each goal is minimised, then fixed at its value before the next):<br>1. Demanding-task slots placed inside focus windows (minimise the slots outside them).<br>2. Fewer blocks (minimise fragmentation).<br>3. Earlier completion: minimise the sum, over work slots, of their day offset from today, which leaves buffer before deadlines. May stop within 10 % of its lower bound.<br>Each goal has a time cap once a plan exists (D-21): focus 0.8 s, fewer blocks 0.5 s, earlier completion 0.3 s, and minimum lateness 1.5 s in the benchmark's lateness mode. If no plan exists when a cap expires, the search continues within the R18 limit. The minimum-shortfall goal of diagnosis is never capped, so H stays exact (R29). Goals may therefore be near-optimal rather than proven optimal; the benchmark reports how often they were proven (R57). The solver is given a starting plan that respects the block-length rules. Stability on replan is a lower-priority goal; see R64. |
 | R17 | Must | WHEN a task's deadline is after the horizon end, THE SYSTEM SHALL require its **pro-rata share** inside the horizon:<br>• share = ⌈remaining work × (horizon length ÷ time from now to the deadline)⌉, in whole slots, and never more than the remaining work;<br>• the share is treated as work due at the horizon end, and ranks like any other work for focus windows (R16);<br>• the rest of the task is not placed in this plan;<br>• the task SHALL be labelled "continues beyond this plan".<br>IF the share cannot fit, THEN the plan is infeasible (R29). For such a task, only the cut option applies, not an extend option. |
 | R18 | Must | THE SYSTEM SHALL run CP-SAT with a wall-clock limit (default 10 s, configurable) and a configurable number of workers (default 4). |
 | R19 | Must | IF CP-SAT returns neither a feasible plan nor a proof of infeasibility within the limit, THEN THE SYSTEM SHALL show the greedy EDF plan (R55) instead. A banner SHALL say "Showing a quick plan — the optimizer ran out of time." The plan's deadline misses and short blocks SHALL be shown (R20). |
@@ -301,7 +301,7 @@ Each criterion either passes or fails. "Demo data" means the R51 data set. "Vali
 
 ## 8. Decisions
 
-These questions were open in earlier drafts or in PLAN.md §5. The owner resolved D-1 to D-10 on 2026-10-14, and D-11 to D-20 on 2026-10-15.
+These questions were open in earlier drafts or in PLAN.md §5. The owner resolved D-1 to D-10 on 2026-10-14, and D-11 to D-20 on 2026-10-15. D-21 and D-22 are small clarifications made during the build under the owner's standing rule (plan defaults chosen, no AC target or scope changed).
 
 | ID | Question | Decision | Reflected in |
 |---|---|---|---|
@@ -325,6 +325,8 @@ These questions were open in earlier drafts or in PLAN.md §5. The owner resolve
 | D-18 (plan Q-10) | Which separators does single-line paste accept? | `—`, `–`, ` - `, `\|` and tab. | R46 |
 | D-19 (plan Q-11) | Is the AC-17 accuracy bar too coarse with 3 screenshots? | Keep the thresholds, and report the row count next to each percentage. | AC-17 |
 | D-20 (plan Q-8, Q-9, Q-12) | What happens to the Phase 1 smoke page, which table its write check uses, and which Gemini model is the default? | Plan-level only, with no spec change:<br>• the smoke page is removed in Phase 3;<br>• the write check uses a throwaway `planners` row that is deleted at once;<br>• the Gemini model ID is chosen and recorded in the PLAN.md Phase 1 log. | PLAN.md |
+| D-21 (build) | The R16 goals with fixed caps of 3 s and 1 s left the 20-task benchmark median above AC-23's 2 s, and partial hints made CP-SAT start far from good plans. | Every goal gets a cap once a plan exists (focus 0.8 s, fewer blocks 0.5 s, earlier completion 0.3 s, lateness 1.5 s); minimum shortfall stays uncapped. CP-SAT gets a complete starting plan that respects the block-length rules (not the R55 baseline, which ignores the min block). `repair_hint` is not used: it crashed OR-Tools 9.15 with several workers. No AC target changed. | R16, R18, AC-22, AC-23 |
+| D-22 (build) | R54 said all work must fit in the horizon, but ρ counted available slots without the daily cap, so "fits" was not guaranteed. | Capacity in ρ, and in the 90 % rule, counts available slots with each day capped at the max work per day. | §4.3, R54 |
 
 ## 9. Open questions
 
@@ -428,3 +430,4 @@ All Must criteria are completed first. Should items start only after every Must 
 | 0.4 | 2026-10-15 | Shubham Meghani (with Claude) | Resolved the PLAN.md §5 questions as D-12–D-20. The validator uses base rules plus per-plan-type rules; greedy and best-effort deadline misses and short blocks are reported, not failures (R19, R20, AC-5, AC-11). Tasks due after the horizon get a pro-rata share (R14.3, R17, AC-27). The daily cap counts work already done today (R14.6). Paste separators (R46). AC-4 and AC-9 are timed on the live app. AC-17 reports row counts. Added Must AC-40–AC-47 for R6, R10–R13, R21, R24, R34 and R35, and Should AC-39 for R28; every requirement now has an AC, and none moved to Should. Output files: added `PLAN.md`, `tests/test_inputs.py` and `tests/test_app.py`. |
 | 0.5 | 2026-10-15 | Shubham Meghani (with Claude) | AC-3 now matches only real key formats (`sb_secret_` + 20 characters, `AQ.` + 20, `AIza` + 20, JWTs). The v0.4 patterns also matched key names mentioned in SPEC.md and PLAN.md, so AC-3 could never pass. |
 | 0.6 | 2026-10-15 | Shubham Meghani (with Claude) | R16: the soft goals are solved lexicographically, one after another, instead of as one weighted sum. Fewer blocks gets ≤ 3 s, and earlier completion gets ≤ 1 s with a 10 % gap; it is now measured in day offsets rather than block end slots. Reason: on demo weeks the weighted model could not be proven optimal within the 10 s limit, which broke AC-4, AC-9 and AC-23. The plan found in 0.5 s was as good as the one after 10 s. No AC target changed. |
+| 0.7 | 2026-10-15 | Shubham Meghani (with Claude) | D-21: per-goal time caps for R16 and a complete, rule-respecting starting plan for CP-SAT. D-22: ρ and the 90 % rule count capacity with the daily cap. No AC target changed. |
