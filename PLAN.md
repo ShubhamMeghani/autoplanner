@@ -222,7 +222,7 @@ Every AC maps to the task that finally satisfies it. Status as of 2026-10-15, af
 | AC-45 | Must | 5.1 | Unit and `AppTest` | ✅ pass |
 | AC-46 | Must | 5.4 | Unit (fake clock) | ✅ pass |
 | AC-47 | Must | 4.6 | `AppTest` | ✅ pass |
-| AC-48 | Must | post-plan: clipboard paste (R68, SPEC v0.11) | Unit and live manual | ⏳ in progress |
+| AC-48 | Must | post-plan: clipboard paste (R68, SPEC v0.11) | Unit and live manual | ✅ pass (unit) · ⏳ manual check in 4 browsers |
 
 **Coverage:** 47 of 47 ACs are mapped: 40 Must and 7 Should.
 

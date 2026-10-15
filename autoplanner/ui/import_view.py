@@ -17,7 +17,7 @@ from autoplanner.config import (GEMINI_DAILY_LIMIT, GEMINI_DEMO_SESSION_LIMIT, M
                                 MAX_UPLOAD_FILES, TYPE_LABELS, TZ, get_secret)
 from autoplanner.importers.pipeline import ImportResult, ReviewRow, import_screenshots, import_text, rows_to_tasks
 from autoplanner.planner import PlannerService, PlanView
-from autoplanner.ui import log, run_action
+from autoplanner.ui import clipboard_paste, log, run_action
 
 NOTICE = ("Screenshots are sent to Google Gemini for reading and are never stored by AutoPlanner. "
           "Tip: crop the screenshot to the assignment list.")
@@ -59,11 +59,44 @@ def _read(images: list[bytes], import_date, view: PlanView, service: PlannerServ
     return result
 
 
+def read_pasted(payload, import_date, view: PlanView, service: PlannerService, demo: bool) -> ImportResult:
+    """R68: a pasted screenshot goes through exactly the same reader as an uploaded one.
+    Raises clipboard_paste.PasteError for content that isn't a usable image."""
+    image = clipboard_paste.decode_pasted(payload)
+    try:
+        return _read([image], import_date, view, service, demo)
+    finally:
+        del image  # in memory only, never stored (R42)
+
+
+def pasted_screenshot(view: PlanView, service: PlannerService, demo: bool, import_date) -> None:
+    gen = st.session_state.setdefault("paste_gen", 0)
+    payload = clipboard_paste.paste_area(key=f"paste_{gen}")
+    if not payload:
+        return
+    st.session_state["paste_gen"] = gen + 1  # a new box next run: Streamlit drops the pasted data (R42)
+    try:
+        with st.spinner("Reading the pasted screenshot…"):
+            result = read_pasted(payload, import_date, view, service, demo)
+    except clipboard_paste.PasteError as exc:
+        st.error(str(exc))
+        return
+    except Exception:
+        log.exception("pasted screenshot import failed")
+        st.error("The pasted screenshot couldn't be read. Nothing was changed; try again or upload it as a file.")
+        return
+    finally:
+        payload = None
+    _store(result, "screenshot")
+    st.rerun()
+
+
 def screenshot_section(view: PlanView, service: PlannerService, demo: bool) -> None:
     gen = st.session_state.setdefault("uploader_gen", 0)
     import_date = st.date_input("Screenshot taken on", value=view.now.date(), key="shot_date",
                                 help="Relative dates like “Due tomorrow” are read from this date.")
-    files = st.file_uploader("Teams Assignments screenshots (up to 5)", type=["png", "jpg", "jpeg", "webp"],
+    pasted_screenshot(view, service, demo, import_date)  # R68: the fastest way in
+    files = st.file_uploader("Or upload screenshot files (up to 5)", type=["png", "jpg", "jpeg", "webp"],
                              accept_multiple_files=True, key=f"uploader_{gen}")
     if demo and SAMPLE.exists() and st.button("Try with a sample screenshot", key="sample_shot"):  # R48
         st.image(str(SAMPLE), caption="A synthetic Teams Assignments list (fictional data)")

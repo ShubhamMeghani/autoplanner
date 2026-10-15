@@ -94,9 +94,10 @@ def build_rows(raw_rows: list[RawRow], import_date: date, now: datetime, existin
 def import_screenshots(images: list[bytes], import_date: date, now: datetime, existing: list[Task], *,
                        api_key: str | None, model: str | None, gemini_allowed: bool = True,
                        gemini_budget: int | None = None, gemini_client=None, ocr_fn: Callable[[bytes], str] | None = None,
-                       ocr_available: Callable[[], bool] = tesseract_available) -> ImportResult:
+                       ocr_available: Callable[[], bool] | None = None) -> ImportResult:
     """Read each image with Gemini, or with Tesseract when Gemini can't be used (R41)."""
-    ocr_fn = ocr_fn or ocr_text
+    ocr_fn = ocr_fn or ocr_text  # looked up at call time, so tests can stub them
+    ocr_available = ocr_available or tesseract_available
     result = ImportResult(rows=[])
     for number, image in enumerate(images, 1):
         label = f"Screenshot {number}" if len(images) > 1 else "The screenshot"

@@ -189,3 +189,93 @@ def test_gemini_limit_switches_to_tesseract_ac32():
     assert LIMIT_REACHED in result.notes[0]
     under = run(FakeGemini(gemini_rows()), gemini_budget=1)
     assert under.gemini_calls == 1 and all(r.engine == "Gemini" for r in under.rows)
+
+
+# ---------- pasted screenshots (R68, AC-48) ----------
+
+import base64  # noqa: E402
+
+import pytest  # noqa: E402
+
+from autoplanner.ui import import_view  # noqa: E402
+from autoplanner.ui.clipboard_paste import PasteError, decode_pasted  # noqa: E402
+
+
+def data_url(image: bytes, mime: str = "image/png") -> dict:
+    """What the paste box sends after Ctrl+V: a data URL trigger value."""
+    return {"data_url": f"data:{mime};base64,{base64.b64encode(image).decode()}", "type": mime, "size": len(image)}
+
+
+def test_pasted_png_decodes_to_the_original_bytes_ac48():
+    image = synthetic_png()
+    assert decode_pasted(data_url(image)) == image
+
+
+@pytest.mark.parametrize("payload", [
+    None,
+    "data:image/png;base64,AAAA",  # not the component's dict
+    {"size": 3},  # no data URL
+    {"data_url": "data:text/plain;base64,aGVsbG8="},  # not an image type
+    {"data_url": "data:image/gif;base64,R0lGODlhAQABAAAAACw="},  # an image type we don't take
+    {"data_url": "data:image/png;base64,@@not-base64@@"},  # broken encoding
+    {"data_url": "data:image/png;base64," + base64.b64encode(b"just some text").decode()},  # says PNG, isn't
+])
+def test_unusable_pastes_are_rejected_plainly_ac48(payload):
+    with pytest.raises(PasteError) as exc:
+        decode_pasted(payload)
+    assert "Traceback" not in str(exc.value) and str(exc.value).endswith(".")
+
+
+def test_oversized_paste_is_rejected_ac48():
+    huge = {"data_url": "data:image/png;base64," + "A" * (14 * 1024 * 1024)}
+    with pytest.raises(PasteError, match="larger than 10 MB"):
+        decode_pasted(huge)
+
+
+def planner_service():
+    repo = MemoryRepo()
+    pid = repo.create_planner(Preferences())
+    service = PlannerService(repo, pid, clock=lambda: NOW)
+    return repo, pid, service, service.view()
+
+
+def test_pasted_image_goes_through_the_gemini_pipeline_ac48(monkeypatch):
+    repo, pid, service, view = planner_service()
+    client = FakeGemini(gemini_rows())
+    monkeypatch.setattr(import_view, "get_secret", lambda name: {"GEMINI_API_KEY": "k", "GEMINI_MODEL": "m"}.get(name))
+    monkeypatch.setattr("autoplanner.importers.gemini_vision.make_client", lambda key: client)
+    image = synthetic_png()
+    result = import_view.read_pasted(data_url(image), IMPORT, view, service, demo=False)
+    assert len(result.rows) == 5 and {r.engine for r in result.rows} == {"Gemini"}
+    assert client.calls[0].contents[0].inline_data.data == image  # the very same bytes, sent inline
+    assert repo.count_gemini_calls(pid, NOW.replace(hour=0, minute=0)) == 1  # counted for the R47 limit
+
+
+def test_pasted_image_falls_back_to_tesseract_ac48(monkeypatch):
+    repo, pid, service, view = planner_service()
+    monkeypatch.setattr(import_view, "get_secret", lambda name: None)  # no Gemini key
+    monkeypatch.setattr("autoplanner.importers.pipeline.tesseract_available", lambda: True)
+    monkeypatch.setattr("autoplanner.importers.pipeline.ocr_text", lambda image: OCR_TEXT)
+    result = import_view.read_pasted(data_url(synthetic_png()), IMPORT, view, service, demo=False)
+    assert [r.engine for r in result.rows] == [TESSERACT_FALLBACK]
+    assert "read with Tesseract (fallback)" in result.notes[0]
+
+
+def test_pasted_images_are_never_stored_ac48(monkeypatch):
+    repo, pid, service, view = planner_service()
+    monkeypatch.setattr(import_view, "get_secret", lambda name: {"GEMINI_API_KEY": "k", "GEMINI_MODEL": "m"}.get(name))
+    monkeypatch.setattr("autoplanner.importers.gemini_vision.make_client", lambda key: FakeGemini(gemini_rows()))
+    payload = data_url(synthetic_png())
+    result = import_view.read_pasted(payload, IMPORT, view, service, demo=False)
+    tasks, _ = rows_to_tasks([r for r in result.rows if r.flag != "unresolved"], NOW, "screenshot")
+    service.change(lambda s, now: replace(s, tasks=s.tasks + tasks))
+    leftovers = list(_walk(repo._planners)) + list(_walk(repo._imports)) + list(_walk(result))
+    assert not any(isinstance(v, (bytes, bytearray)) for v in leftovers)
+    assert not any(isinstance(v, str) and v.startswith("data:image") for v in leftovers)
+
+
+def test_bad_paste_changes_nothing_ac48():
+    repo, pid, service, view = planner_service()
+    with pytest.raises(PasteError):
+        import_view.read_pasted({"data_url": "data:text/plain;base64,aGk="}, IMPORT, view, service, demo=False)
+    assert repo.load(pid).tasks == [] and repo.count_gemini_calls(pid, NOW.replace(hour=0)) == 0
