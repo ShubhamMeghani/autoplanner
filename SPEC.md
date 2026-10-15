@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Draft v0.7 |
+| Status | Draft v0.8 |
 | Date | 2026-10-15 |
 | Owner | Shubham Meghani |
 | Build budget | 3 days |
@@ -208,7 +208,7 @@ Success means three things:
 |---|---|---|
 | R54 | Must | THE SYSTEM SHALL include a seeded workload generator. Its parameters are size (10 tasks/7 days, 20/7, 30/14) and load ratio ρ ∈ {0.6, 0.9, 1.15}. Its output:<br>• a weekday class and lab timetable, 0–3 blocked times, and default preferences;<br>• task estimates scaled to hit the target ρ (±0.05), with total work ≤ 90 % of the available slots in the horizon, so that all work fits somewhere.<br>"Now" is fixed at Monday 08:00 of a fixed week. |
 | R55 | Must | THE SYSTEM SHALL include a **greedy EDF baseline**, defined as follows:<br>1. Visit the available slots in time order, skipping slots where the day's cap is reached.<br>2. In each slot, assign the open task with the earliest deadline (ties: continue the current task, then larger remaining work, then ID). Skip tasks whose current run has reached the max block length.<br>3. Work may continue past a deadline, which counts as lateness.<br>4. The baseline ignores focus windows and the min block length. |
-| R56 | Must | THE SYSTEM SHALL compute these metrics with one shared module for both methods:<br>• **deadlines met**: tasks whose work is all scheduled at or before the deadline;<br>• **total lateness**: Σ max(0, finish − deadline), in hours;<br>• **preference violations**: demanding slots outside focus windows, plus blocks shorter than the min block length (not counting a task's only block when its total work is below the min);<br>• **solve time**: wall clock in seconds, including model building.<br>In the benchmark, the optimizer runs in strict mode. When strict mode is proven infeasible, the optimizer switches to a minimum-total-lateness mode. |
+| R56 | Must | THE SYSTEM SHALL compute these metrics with one shared module for both methods:<br>• **deadlines met**: tasks whose work is all scheduled at or before the deadline;<br>• **total lateness**: Σ max(0, finish − deadline), in hours;<br>• **preference violations**: demanding slots outside focus windows, plus blocks shorter than the min block length (not counting a task's only block when its total work is below the min);<br>• **solve time**: wall clock in seconds, including model building.<br>In the benchmark, the optimizer runs in strict mode. When strict mode is proven infeasible, the optimizer switches to a minimum-total-lateness mode. In that mode the min block length is a soft goal (D-23). |
 | R57 | Must | WHEN `python -m bench.run_benchmark --seeds 10` runs, THE SYSTEM SHALL write `bench/results/results.csv` (one row per instance × method), `bench/results/REPORT.md` and `bench/results/comparison.png`. The report SHALL contain:<br>• aggregate tables by size and ρ;<br>• solve-time median, p95 and max, and the % proven optimal;<br>• environment details: CPU, Python, OR-Tools version, time limit, workers. |
 | R58 | Should | THE SYSTEM SHALL show the latest `REPORT.md` and chart on a "Results" page in the app. |
 
@@ -301,7 +301,7 @@ Each criterion either passes or fails. "Demo data" means the R51 data set. "Vali
 
 ## 8. Decisions
 
-These questions were open in earlier drafts or in PLAN.md §5. The owner resolved D-1 to D-10 on 2026-10-14, and D-11 to D-20 on 2026-10-15. D-21 and D-22 are small clarifications made during the build under the owner's standing rule (plan defaults chosen, no AC target or scope changed).
+These questions were open in earlier drafts or in PLAN.md §5. The owner resolved D-1 to D-10 on 2026-10-14, and D-11 to D-20 on 2026-10-15. D-21 to D-23 are small clarifications made during the build under the owner's standing rule (plan defaults chosen, no AC target or scope changed).
 
 | ID | Question | Decision | Reflected in |
 |---|---|---|---|
@@ -327,6 +327,7 @@ These questions were open in earlier drafts or in PLAN.md §5. The owner resolve
 | D-20 (plan Q-8, Q-9, Q-12) | What happens to the Phase 1 smoke page, which table its write check uses, and which Gemini model is the default? | Plan-level only, with no spec change:<br>• the smoke page is removed in Phase 3;<br>• the write check uses a throwaway `planners` row that is deleted at once;<br>• the Gemini model ID is chosen and recorded in the PLAN.md Phase 1 log. | PLAN.md |
 | D-21 (build) | The R16 goals with fixed caps of 3 s and 1 s left the 20-task benchmark median above AC-23's 2 s, and partial hints made CP-SAT start far from good plans. | Every goal gets a cap once a plan exists (focus 0.8 s, fewer blocks 0.5 s, earlier completion 0.3 s, lateness 1.5 s); minimum shortfall stays uncapped. CP-SAT gets a complete starting plan that respects the block-length rules (not the R55 baseline, which ignores the min block). `repair_hint` is not used: it crashed OR-Tools 9.15 with several workers. No AC target changed. | R16, R18, AC-22, AC-23 |
 | D-22 (build) | R54 said all work must fit in the horizon, but ρ counted available slots without the daily cap, so "fits" was not guaranteed. | Capacity in ρ, and in the 90 % rule, counts available slots with each day capped at the max work per day. | §4.3, R54 |
+| D-23 (build) | In the benchmark's minimum-lateness mode the optimizer kept the min block length as a hard rule while the R55 baseline ignores it, so the optimizer had less room and AC-22's lateness check failed (1281 h vs 1165 h). | Lateness-mode plans are best-effort plans, so, as D-12 already says, short blocks are counted, not forbidden: the min block becomes a soft goal ranked after lateness and focus. The solver starts from the less late of the two starting plans. Strict mode and diagnosis keep R14.5 hard. Result: 782 h vs 1165 h. No AC target changed. | R14.5, R20, R56, AC-22 |
 
 ## 9. Open questions
 
@@ -431,3 +432,4 @@ All Must criteria are completed first. Should items start only after every Must 
 | 0.5 | 2026-10-15 | Shubham Meghani (with Claude) | AC-3 now matches only real key formats (`sb_secret_` + 20 characters, `AQ.` + 20, `AIza` + 20, JWTs). The v0.4 patterns also matched key names mentioned in SPEC.md and PLAN.md, so AC-3 could never pass. |
 | 0.6 | 2026-10-15 | Shubham Meghani (with Claude) | R16: the soft goals are solved lexicographically, one after another, instead of as one weighted sum. Fewer blocks gets ≤ 3 s, and earlier completion gets ≤ 1 s with a 10 % gap; it is now measured in day offsets rather than block end slots. Reason: on demo weeks the weighted model could not be proven optimal within the 10 s limit, which broke AC-4, AC-9 and AC-23. The plan found in 0.5 s was as good as the one after 10 s. No AC target changed. |
 | 0.7 | 2026-10-15 | Shubham Meghani (with Claude) | D-21: per-goal time caps for R16 and a complete, rule-respecting starting plan for CP-SAT. D-22: ρ and the 90 % rule count capacity with the daily cap. No AC target changed. |
+| 0.8 | 2026-10-15 | Shubham Meghani (with Claude) | D-23: in the benchmark's minimum-lateness mode the min block length is a soft goal (consistent with D-12); R56 updated. No AC target changed. |
