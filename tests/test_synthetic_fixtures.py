@@ -42,9 +42,9 @@ def test_generator_is_deterministic_and_matches_the_committed_labels_ac36(tmp_pa
     first, second = tmp_path / "a", tmp_path / "b"
     paths = gen.generate(first)
     gen.generate(second)
-    labels = (first / "labels.json").read_text(encoding="utf-8")
-    assert labels == (second / "labels.json").read_text(encoding="utf-8")
-    assert labels == (SYNTHETIC / "labels.json").read_text(encoding="utf-8")
+    labels = json.loads((first / "labels.json").read_text(encoding="utf-8"))
+    assert labels == json.loads((second / "labels.json").read_text(encoding="utf-8"))
+    assert labels == json.loads((SYNTHETIC / "labels.json").read_text(encoding="utf-8"))  # line-ending proof
     assert len(paths) >= 3
     for path in paths:
         with Image.open(path) as image:
