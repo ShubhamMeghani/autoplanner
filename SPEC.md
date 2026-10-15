@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Draft v0.9 |
+| Status | Draft v0.10 |
 | Date | 2026-10-15 |
 | Owner | Shubham Meghani |
 | Build budget | 3 days |
@@ -137,7 +137,7 @@ Success means three things:
 | R18 | Must | THE SYSTEM SHALL run CP-SAT with a wall-clock limit (default 10 s, configurable) and a configurable number of workers (default 4). |
 | R19 | Must | IF CP-SAT returns neither a feasible plan nor a proof of infeasibility within the limit, THEN THE SYSTEM SHALL show the greedy EDF plan (R55) instead. A banner SHALL say "Showing a quick plan — the optimizer ran out of time." The plan's deadline misses and short blocks SHALL be shown (R20). |
 | R20 | Must | WHEN any plan is produced (by the optimizer, the fallback, diagnosis, or the benchmark), THE SYSTEM SHALL check it with an independent validator before saving or displaying it. The validator applies the rule set for the plan's type:<br>• **Base rules**, for every plan: R14.1 (only available slots: no clash with fixed events, no blocked or out-of-hours time, nothing in the past) and R14.2 (no overlaps).<br>• **Optimizer plans** (strict mode): the base rules plus R14.3–R14.6.<br>• **Greedy plans** (the baseline and the R19 fallback) and **best-effort plans** (minimum shortfall, minimum lateness): the base rules plus R14.4 and R14.6. Deadline misses (R14.3), short blocks (R14.5) and unscheduled hours are counted and reported with the plan. They are not validation failures.<br>IF a plan breaks a rule in its rule set, THEN THE SYSTEM SHALL NOT save that plan. It SHALL show an error message and keep the previous plan. |
-| R21 | Must | WHEN a plan is ready, THE SYSTEM SHALL display it in the calendar (week and day views) with fixed events and blocked times. It SHALL be possible to move through the whole horizon. |
+| R21 | Must | WHEN a plan is ready, THE SYSTEM SHALL display it in the calendar (week and day views) with fixed events and blocked times. The week view SHALL open 2 days before today, so recent blocks can be marked done or not done straight away. It SHALL be possible to move through the whole horizon. WHEN the user clicks a block, THE SYSTEM SHALL confirm the selection with a notice, scroll to the block's details and actions, and show them highlighted. |
 | R22 | Should | WHEN a plan is ready, THE SYSTEM SHALL show the plan summary table described in §4.2. |
 | R64 | Should | WHEN replanning, THE SYSTEM SHALL, as its lowest-priority soft goal (below R16's goals), minimise the number of future slots that differ from the previous plan. |
 
@@ -198,7 +198,7 @@ Success means three things:
 
 | ID | Priority | Requirement |
 |---|---|---|
-| R51 | Must | WHEN a visitor opens `?demo=1` or clicks "Try the demo", THE SYSTEM SHALL load sample data dated relative to today:<br>• an IISc-style timetable (≥ 8 classes and labs per week);<br>• ≥ 8 open tasks of mixed types, including ≥ 3 demanding tasks and ≥ 1 task longer than the max block length;<br>• default preferences with ≥ 1 blocked time;<br>• ≥ 3 learning-eligible completed tasks, so that the learning factors are not 1.0.<br>It SHALL then show the planned calendar. |
+| R51 | Must | WHEN a visitor opens `?demo=1` or clicks "Try the demo", THE SYSTEM SHALL load sample data dated relative to today:<br>• an IISc-style timetable (≥ 8 classes and labs per week);<br>• ≥ 8 open tasks of mixed types, including ≥ 3 demanding tasks and ≥ 1 task longer than the max block length;<br>• default preferences with ≥ 1 blocked time;<br>• ≥ 3 learning-eligible completed tasks, so that the learning factors are not 1.0.<br>• ≥ 5 past task blocks from the previous 2 days with no feedback yet, so a visitor can mark them done (with the time taken) or not done at once.<br>It SHALL then show the planned calendar. |
 | R52 | Must | WHILE in demo mode, THE SYSTEM SHALL keep all data in the session only, make no database writes, show the banner "Demo — changes are not saved", and offer "Reset demo". Demo mode SHALL work with no secrets configured. |
 | R53 | Should | WHILE in demo mode, THE SYSTEM SHALL offer an "Overload the week" toggle. It adds tasks that make the plan infeasible, to show R29–R32. |
 
@@ -272,7 +272,7 @@ Each criterion either passes or fails. "Demo data" means the R51 data set. "Vali
 | AC-41 | Must | Each of these is rejected, with the reason shown at its field and 0 tasks saved: an empty title, an estimate of 0 h, an estimate of 40.5 h, and a past deadline. A valid task is saved as `open`, with `demanding` taken from the type table (`project` → true, `reading` → false). | R10, R11 |
 | AC-42 | Must | Each of these changes produces a new plan with no further user action: editing a task's estimate, deleting a task, adding an event, and changing a preference. | R12 |
 | AC-43 | Must | These preference cases behave as follows:<br>• day start 23:00 with "no work at/after" 23:00 is rejected;<br>• min block 3 h with max block 2 h is rejected;<br>• with day start 08:00, a focus window of 06:00–09:00 is saved as 08:00–09:00, and the user sees a notice. | R13 |
-| AC-44 | Must | On demo data, the calendar offers week and day views. Navigating forward reaches the last horizon day. Fixed events, blocked times and task blocks each appear at least once. | R21 |
+| AC-44 | Must | On demo data:<br>• the calendar offers week and day views;<br>• the initial week view starts 2 days before today, and its visible range includes ≥ 5 unconfirmed past blocks;<br>• navigating forward reaches the last horizon day;<br>• fixed events, blocked times and task blocks each appear at least once;<br>• a first click on a block selects it, shows a notice and requests a scroll to the highlighted details panel, and a repeated rerun with the same click does not.<br>**Manual:** on the live app, clicking a block scrolls to its highlighted details. | R21, R51 |
 | AC-45 | Must | Marking a block done with 75 actual minutes stores `done`, confirmed, and 75 minutes. Marking one done with no value stores its planned length. A past block marked done no longer shows the "unconfirmed" badge. | R24 |
 | AC-46 | Must | Unit test with a fake clock where each solve takes 4 s: diagnosis starts no solve after 15 s have passed. It returns the options found so far and the best-effort plan, with `cut_short = true`. | R34 |
 | AC-47 | Must | App test (Streamlit `AppTest`): the solver, the storage and the Gemini client are each stubbed in turn to raise an exception. Each time, the page shows a plain-language message, the rendered page contains no "Traceback", and the previous tasks and plan are unchanged. | R35 |
@@ -434,3 +434,4 @@ All Must criteria are completed first. Should items start only after every Must 
 | 0.7 | 2026-10-15 | Shubham Meghani (with Claude) | D-21: per-goal time caps for R16 and a complete, rule-respecting starting plan for CP-SAT. D-22: ρ and the 90 % rule count capacity with the daily cap. No AC target changed. |
 | 0.8 | 2026-10-15 | Shubham Meghani (with Claude) | D-23: in the benchmark's minimum-lateness mode the min block length is a soft goal (consistent with D-12); R56 updated. No AC target changed. |
 | 0.9 | 2026-10-15 | Shubham Meghani (with Claude) | R67: CI is pinned to `ubuntu-24.04` and runs plain `pytest`. The package is importable through pytest's `pythonpath` setting. CI had failed with `No module named 'autoplanner'`; local runs used `python -m pytest`, which hid the problem. |
+| 0.10 | 2026-10-15 | Shubham Meghani (with Claude) | R21: the week view opens 2 days before today, and clicking a block confirms the selection, scrolls to its details and highlights them. R51: the demo has ≥ 5 past blocks from the previous 2 days with no feedback. AC-44 extended. Reason: live, the past blocks were hidden behind "‹", so AC-9 couldn't be checked. |
