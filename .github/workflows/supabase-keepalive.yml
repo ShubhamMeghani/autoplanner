@@ -1,5 +1,6 @@
 # R63: one read request every third day so the free Supabase project never pauses.
-# Needs the repository secrets SUPABASE_URL and SUPABASE_KEY. Prints only the HTTP status.
+# Needs the repository secrets SUPABASE_URL and SUPABASE_KEY. Prints only the HTTP status:
+# never a secret value, a response body, or curl's own error text (which can contain the URL).
 name: Supabase keep-alive
 
 on:
@@ -9,15 +10,53 @@ on:
 
 jobs:
   ping:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Read one row from Supabase
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          RAW_URL: ${{ secrets.SUPABASE_URL }}
+          RAW_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          status=$(curl -sS -o /dev/null -w '%{http_code}' \
-            -H "apikey: ${SUPABASE_KEY}" \
-            "${SUPABASE_URL}/rest/v1/planners?select=id&limit=1")
+          # Secrets pasted with a trailing newline, spaces or quotes break the request
+          # ("URL rejected: Malformed input to a URL function"). Clean them first.
+          clean() {
+            local v="$1"
+            v="${v//$'\r'/}"
+            v="${v//$'\n'/}"
+            v="${v#"${v%%[![:space:]]*}"}"   # leading whitespace
+            v="${v%"${v##*[![:space:]]}"}"   # trailing whitespace
+            if [[ ${#v} -ge 2 && ( ( "${v:0:1}" == '"' && "${v: -1}" == '"' ) || ( "${v:0:1}" == "'" && "${v: -1}" == "'" ) ) ]]; then
+              v="${v:1:${#v}-2}"
+              v="${v#"${v%%[![:space:]]*}"}"
+              v="${v%"${v##*[![:space:]]}"}"
+            fi
+            printf '%s' "$v"
+          }
+          url="$(clean "$RAW_URL")"
+          url="${url%/}"
+          key="$(clean "$RAW_KEY")"
+          # Mask the cleaned values too: they differ from the stored secrets, so GitHub
+          # would not hide them automatically if anything ever printed them.
+          [[ -n "$url" ]] && echo "::add-mask::$url"
+          [[ -n "$key" ]] && echo "::add-mask::$key"
+
+          if [[ ! "$url" =~ ^https://[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::SUPABASE_URL must look like https://<project-ref>.supabase.co (value not shown)."
+            exit 1
+          fi
+          if [[ -z "$key" || "$key" =~ [[:space:]] ]]; then
+            echo "::error::SUPABASE_KEY is empty or contains spaces (value not shown)."
+            exit 1
+          fi
+
+          # -s without -S: curl stays silent on errors, so its messages can't leak the URL.
+          code=0
+          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+            -H "apikey: ${key}" \
+            "${url}/rest/v1/planners?select=id&limit=1") || code=$?
+          if [[ $code -ne 0 ]]; then
+            echo "::error::The request to Supabase failed (curl exit code $code)."
+            exit 1
+          fi
           echo "Supabase responded with HTTP ${status}"
           test "${status}" = "200"
