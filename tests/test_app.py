@@ -173,3 +173,9 @@ def test_selecting_a_started_block_offers_done_and_not_done_ac45():
     state = repo.load(DEMO_PLANNER_ID)
     assert state.block(started.id).status == "not_done"
     assert state.meta["plan_version"] == version + 1
+
+
+def test_plan_tab_offers_the_ics_download_r49():
+    app = demo_app()
+    assert not app.exception
+    assert "Download the file." in all_text(app)

@@ -11,6 +11,7 @@ import streamlit as st
 
 from autoplanner.config import TZ, install_log_scrubber
 from autoplanner.demo import DEMO_PLANNER_ID, demo_repo
+from autoplanner.ics_export import GOOGLE_STEPS, build_ics, filename
 from autoplanner.models import Preferences
 from autoplanner.planner import PlannerService, PlanView
 from autoplanner.storage import StorageUnavailable, get_repo, is_valid_planner_id
@@ -83,6 +84,15 @@ def plan_tab(view: PlanView, service: PlannerService) -> None:
     if st.button("Replan now", key="replan"):
         if run_action(service.replan, "Replanned."):
             st.rerun()
+    export_section(view)
+
+
+def export_section(view: PlanView) -> None:
+    st.subheader("Export to Google Calendar")
+    data = build_ics(view.state, view.now, view.horizon_end)
+    st.download_button("Export to Google Calendar (.ics)", data=data, file_name=filename(view.now),
+                       mime="text/calendar", key="export_ics")
+    st.markdown("\n".join(f"{i}. {step}" for i, step in enumerate(GOOGLE_STEPS, 1)))
 
 
 def planner_page(service: PlannerService, demo: bool, link: str | None = None) -> None:
