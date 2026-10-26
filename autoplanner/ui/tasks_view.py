@@ -13,7 +13,7 @@ from autoplanner.learning import correction_factor, corrected_estimate, factor_r
 from autoplanner.models import Event, Task, default_demanding, validate_task_input
 from autoplanner.planner import PlannerService, PlanView
 from autoplanner.timegrid import snap_times
-from autoplanner.ui import fmt_dt, fmt_hours, run_action
+from autoplanner.ui import card, fmt_dt, fmt_hours, run_action
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 KIND_LABELS = {"class": "Class", "lab": "Lab", "other": "Other fixed event", "blocked": "Blocked time"}
@@ -47,7 +47,6 @@ def estimate_inputs(tasks: list[Task], task_type: str, key: str) -> tuple[float,
 
 
 def add_task_section(view: PlanView, service: PlannerService) -> None:
-    st.subheader("Add a task")
     gen = st.session_state.setdefault("task_form_gen", 0)
     errors: dict[str, str] = st.session_state.get("task_errors", {})
     left, right = st.columns(2)
@@ -80,8 +79,7 @@ def add_task_section(view: PlanView, service: PlannerService) -> None:
 
 
 def add_event_section(service: PlannerService) -> None:
-    st.subheader("Add a class, lab or blocked time")
-    with st.form("event_form", clear_on_submit=True):
+    with st.form("event_form", clear_on_submit=True, border=False):
         left, right = st.columns(2)
         title = left.text_input("Title")
         kind = right.selectbox("Kind", list(KIND_LABELS), format_func=KIND_LABELS.get)
@@ -134,11 +132,10 @@ def edit_task_section(view: PlanView, service: PlannerService) -> None:
     editable = [t for t in view.state.tasks if t.status != "completed"]
     if not editable:
         return
-    st.subheader("Edit or delete a task")
     labels = {t.id: f"{t.title} (due {fmt_dt(t.deadline)})" for t in editable}
     task_id = st.selectbox("Task", list(labels), format_func=labels.get, key="edit_task_id")
     task = view.state.task(task_id)
-    with st.form(f"edit_{task.id}"):
+    with st.form(f"edit_{task.id}", border=False):
         left, right = st.columns(2)
         title = left.text_input("Title", value=task.title)
         course = right.text_input("Course", value=task.course or "")
@@ -172,9 +169,9 @@ def edit_task_section(view: PlanView, service: PlannerService) -> None:
 
 
 def events_section(view: PlanView, service: PlannerService) -> None:
-    st.subheader("Classes, labs and blocked times")
     if not view.state.events:
-        st.caption("None yet.")
+        st.info("No classes or blocked times yet. Add your timetable below, so study blocks avoid it.",
+                icon="🏫")
     for event in sorted(view.state.events, key=lambda e: (e.kind == "blocked", e.title)):
         when = (", ".join(WEEKDAYS[d] for d in event.weekdays) if event.weekdays is not None
                 else event.on_date.strftime("%a %d %b"))
@@ -189,18 +186,26 @@ def events_section(view: PlanView, service: PlannerService) -> None:
 
 
 def render(view: PlanView, service: PlannerService) -> None:
-    st.subheader("Tasks")
-    rows = task_rows(view)
-    if rows.empty:
-        st.caption("No tasks yet.")
-    else:
-        st.dataframe(rows, hide_index=True, width="stretch")
-    add_task_section(view, service)
-    edit_task_section(view, service)
-    add_event_section(service)
-    events_section(view, service)
-    insights_section(view)
-
+    with card("Tasks", "Everything you've added, with the work left on each."):
+        rows = task_rows(view)
+        if rows.empty:
+            st.info("No tasks yet. Add one below, or import your Teams assignments on the **Import** tab.",
+                    icon="📝")
+        else:
+            st.dataframe(rows, hide_index=True, width="stretch",
+                         column_config={"Task": st.column_config.TextColumn(width="medium"),
+                                        "Note": st.column_config.TextColumn(width="medium")})
+    with card("Add a task"):
+        add_task_section(view, service)
+    if any(t.status != "completed" for t in view.state.tasks):
+        with card("Edit or delete a task"):
+            edit_task_section(view, service)
+    with card("Classes, labs and blocked times", "Study blocks are never planned over these."):
+        events_section(view, service)
+    with card("Add a class, lab or blocked time"):
+        add_event_section(service)
+    with card():
+        insights_section(view)
 
 
 # ---------- prompts shown on the Plan tab (R26, R33) ----------

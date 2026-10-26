@@ -17,7 +17,7 @@ from autoplanner.config import (GEMINI_DAILY_LIMIT, GEMINI_DEMO_SESSION_LIMIT, M
                                 MAX_UPLOAD_FILES, TYPE_LABELS, TZ, get_secret)
 from autoplanner.importers.pipeline import ImportResult, ReviewRow, import_screenshots, import_text, rows_to_tasks
 from autoplanner.planner import PlannerService, PlanView
-from autoplanner.ui import clipboard_paste, log, run_action
+from autoplanner.ui import card, clipboard_paste, log, run_action
 
 NOTICE = ("Screenshots are sent to Google Gemini for reading and are never stored by AutoPlanner. "
           "Tip: crop the screenshot to the assignment list.")
@@ -173,8 +173,12 @@ def review_section(service: PlannerService) -> None:
     rows = [ReviewRow(**r) for r in st.session_state["import_rows"]]
     if not rows:
         return
-    st.subheader("Review before adding")
-    st.caption("Nothing is saved until you click “Add selected tasks”. Check the rows marked ⚠ or ✖ first.")
+    with card("Review before adding",
+              "Nothing is saved until you click “Add selected tasks”. Check the rows marked ⚠ or ✖ first."):
+        _review_table(service, rows)
+
+
+def _review_table(service: PlannerService, rows: list[ReviewRow]) -> None:
     edited = st.data_editor(
         _frame(rows), key="review_editor", hide_index=True, width="stretch", num_rows="fixed",
         disabled=["Date check", "Source text", "Engine"],
@@ -205,11 +209,12 @@ def review_section(service: PlannerService) -> None:
 
 
 def render(view: PlanView, service: PlannerService, demo: bool = False) -> None:
-    st.info(NOTICE)
-    shot, paste = st.tabs(["Screenshot", "Paste text"])
-    with shot:
-        screenshot_section(view, service, demo)
-    with paste:
-        paste_section(view, service)
+    st.info(NOTICE, icon="🔒")
+    with card("Import assignments", "From a Teams screenshot or pasted text. You review everything before it's added."):
+        shot, paste = st.tabs(["Screenshot", "Paste text"])
+        with shot:
+            screenshot_section(view, service, demo)
+        with paste:
+            paste_section(view, service)
     review_section(service)
 

@@ -221,7 +221,7 @@ def diagnosis_banner(view: PlanView, service) -> None:
     st.markdown("**Ways to make it fit** (each one has been checked):")
     for task_id, iso in diagnosis.get("extend") or []:
         new_deadline = datetime.fromisoformat(iso)
-        left, right = st.columns([4, 1])
+        left, right = st.columns([4, 1], vertical_alignment="center")
         left.write(f"Extend “{name(task_id)}” to {fmt_dt(new_deadline)}")
         if right.button("Apply", key=f"extend_{task_id}"):
             if run_action(lambda t=task_id, d=new_deadline: service.extend_deadline(t, d),
@@ -229,7 +229,7 @@ def diagnosis_banner(view: PlanView, service) -> None:
                 st.rerun()
     cut = diagnosis.get("cut")
     if cut:
-        left, right = st.columns([4, 1])
+        left, right = st.columns([4, 1], vertical_alignment="center")
         left.write("Cut hours: " + ", ".join(f"{name(t)} −{fmt_hours(m)}" for t, m in cut.items())
                    + f" ({fmt_hours(sum(cut.values()))} in total)")
         if right.button("Apply", key="apply_cut"):

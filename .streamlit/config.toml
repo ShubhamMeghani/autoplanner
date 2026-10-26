@@ -11,3 +11,16 @@ showErrorDetails = "type"
 [theme]
 base = "light"
 primaryColor = "#2563eb"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f1f5f9"
+textColor = "#0f172a"
+linkColor = "#2563eb"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+headingFontWeights = [700, 650, 600, 600, 600, 600]
+headingFontSizes = ["2.25rem", "1.6rem", "1.25rem", "1.1rem", "1rem", "0.9rem"]
+baseRadius = "0.6rem"
+buttonRadius = "0.6rem"
+borderColor = "#e2e8f0"
+showWidgetBorder = true
+dataframeHeaderBackgroundColor = "#f8fafc"
+metricValueFontSize = "1.6rem"

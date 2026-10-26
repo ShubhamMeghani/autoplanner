@@ -14,10 +14,21 @@ from autoplanner.storage import StorageUnavailable
 log = install_log_scrubber()
 
 
+def card(title: str | None = None, caption: str | None = None):
+    """A bordered section with a consistent heading: every grouped block of the UI uses it."""
+    box = st.container(border=True)
+    if title:
+        box.subheader(title)
+    if caption:
+        box.caption(caption)
+    return box
+
+
 def run_action(action: Callable[[], PlanView], success: str | None = None) -> PlanView | None:
     """Run a change. On any error, show a plain message and leave everything as it was (R35)."""
     try:
-        view = action()
+        with st.spinner("Updating your plan…"):
+            view = action()
     except StorageUnavailable:
         st.error("Couldn't save: storage is unavailable right now. Nothing was changed; please retry.")
     except PlanValidationError:

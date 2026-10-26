@@ -11,7 +11,7 @@ from autoplanner.config import MAX_HORIZON_DAYS
 from autoplanner.models import Preferences, validate_prefs
 from autoplanner.planner import PlannerService, PlanView
 from autoplanner.storage import StorageUnavailable
-from autoplanner.ui import run_action
+from autoplanner.ui import card, run_action
 
 LINK_WARNING = ("Anyone with this link can view and edit your planner. "
                 "Bookmark it — there is no other way back in.")
@@ -24,11 +24,12 @@ def show_link(link: str) -> None:
 
 def render(view: PlanView, service: PlannerService, link: str | None = None) -> None:
     if link:
-        st.subheader("Your private link")
-        show_link(link)
+        with card("Your private link"):
+            show_link(link)
     prefs_section(view, service)
     if link:
-        delete_section(service)
+        with card():
+            delete_section(service)
 
 
 def delete_section(service: PlannerService) -> None:
@@ -36,7 +37,7 @@ def delete_section(service: PlannerService) -> None:
     st.subheader("Delete my planner")
     confirm = st.checkbox("I understand this permanently deletes my tasks, classes, blocked times and plan.",
                           key="confirm_delete")
-    if st.button("Delete my planner", disabled=not confirm, key="delete_planner"):
+    if st.button("Delete my planner", disabled=not confirm, key="delete_planner", icon="🗑️"):
         try:
             service.repo.delete_planner(service.planner_id)
         except StorageUnavailable:
@@ -50,6 +51,7 @@ def delete_section(service: PlannerService) -> None:
 def prefs_section(view: PlanView, service: PlannerService) -> None:
     prefs = view.state.prefs
     st.subheader("Preferences")
+    st.caption("Saving replans your week with the new settings.")
     windows = list(prefs.focus_windows) + [(None, None)] * (3 - len(prefs.focus_windows))
     with st.form("prefs_form"):
         left, right = st.columns(2)
@@ -74,7 +76,7 @@ def prefs_section(view: PlanView, service: PlannerService) -> None:
         daily = left.number_input("Max work per day (hours)", min_value=0.5, max_value=16.0, step=0.5,
                                   value=prefs.max_work_per_day_min / 60)
         horizon = right.slider("Plan this many days ahead", 1, MAX_HORIZON_DAYS, prefs.horizon_days)
-        submitted = st.form_submit_button("Save preferences", type="primary")
+        submitted = st.form_submit_button("Save preferences", type="primary", icon="💾")
     if not submitted:
         return
     candidate = Preferences(day_start=day_start, no_work_after=no_work_after,
