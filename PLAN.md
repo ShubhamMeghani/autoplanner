@@ -279,7 +279,7 @@ New questions found during the build go here first, then into SPEC.md.
 
 | Item | Local | Live (Streamlit Cloud) |
 |---|---|---|
-| URL | http://localhost:8501 | the owner's `*.streamlit.app` URL (not recorded here) |
+| URL | http://localhost:8501 | https://autoplanner.streamlit.app (demo: https://autoplanner.streamlit.app/?demo=1) |
 | Python | 3.13.7 | 3.13.16 ✅ |
 | OR-Tools version | 9.15.6755, CP-SAT OPTIMAL (5, 4, 3) | 9.15.6755, CP-SAT OPTIMAL (5, 4, 3) ✅ |
 | Tesseract version | not installed locally (expected) | 5.5.0 ✅ |

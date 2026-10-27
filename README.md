@@ -11,8 +11,11 @@ deadlines, and AutoPlanner places study blocks in 30-minute slots so that:
 When a block doesn't happen, mark it **not done** and the rest of the week is replanned at once.
 AutoPlanner learns how long you actually take for each kind of task and corrects new estimates.
 
-**Try it:** `https://<your-app>.streamlit.app/?demo=1` opens a realistic demo week, with no sign-up
-and nothing saved.
+**Live app:** [autoplanner.streamlit.app](https://autoplanner.streamlit.app). Create your own planner
+with a private link.
+
+**Quick look:** [autoplanner.streamlit.app/?demo=1](https://autoplanner.streamlit.app/?demo=1) opens a
+realistic demo week with sample data, with no sign-up and nothing saved.
 
 ## Features
 
