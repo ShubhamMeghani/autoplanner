@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Draft v0.11 |
+| Status | Draft v0.12 |
 | Date | 2026-10-15 |
 | Owner | Shubham Meghani |
 | Build budget | 3 days |
@@ -343,6 +343,7 @@ Building any file not listed here needs a changelog entry first.
 |---|---|
 | `SPEC.md` | This specification |
 | `PLAN.md` | Phased implementation plan, with R# / AC-# traceability, risks, and the Phase 1 deployment log |
+| `docs/interview-prep.html` | Self-contained study page for a viva on the project: summary, architecture, worked examples and a question bank (no external requests, no secrets) |
 | `README.md` | What the app is, live and demo links, local setup, secrets, deployment, how to re-enable the keep-alive workflow, the `private/` fixtures convention, benchmark and import-accuracy headline numbers |
 | `requirements.txt` | Pinned runtime dependencies |
 | `requirements-dev.txt` | Test and dev dependencies (`pytest`, etc.) |
@@ -439,3 +440,4 @@ All Must criteria are completed first. Should items start only after every Must 
 | 0.9 | 2026-10-15 | Shubham Meghani (with Claude) | R67: CI is pinned to `ubuntu-24.04` and runs plain `pytest`. The package is importable through pytest's `pythonpath` setting. CI had failed with `No module named 'autoplanner'`; local runs used `python -m pytest`, which hid the problem. |
 | 0.10 | 2026-10-15 | Shubham Meghani (with Claude) | R21: the week view opens 2 days before today, and clicking a block confirms the selection, scrolls to its details and highlights them. R51: the demo has ≥ 5 past blocks from the previous 2 days with no feedback. AC-44 extended. Reason: live, the past blocks were hidden behind "‹", so AC-9 couldn't be checked. |
 | 0.11 | 2026-10-16 | Shubham Meghani (with Claude) | New R68 (Must): paste a screenshot from the clipboard (Ctrl+V) on the Import tab, using the browser paste event, into the same import pipeline, never stored; optional Clipboard API button. New AC-48. Output file `autoplanner/ui/clipboard_paste.py`. Reason: most users take screenshots with Windows+Shift+S and never save a file. |
+| 0.12 | 2026-10-27 | Shubham Meghani (with Claude) | Output files: added `docs/interview-prep.html`, a self-contained interview-prep page. No requirement or AC changed. |
