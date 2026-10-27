@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoPlanner viva prep</title>
+<meta name="description" content="Interview-style viva preparation for AutoPlanner: how it works, why it was built this way, and a question bank with model answers.">
+<style>
+  :root {
+    --bg: #ffffff; --surface: #f8fafc; --surface-2: #f1f5f9; --border: #e2e8f0;
+    --text: #0f172a; --muted: #475569; --accent: #2563eb; --accent-soft: #dbeafe;
+    --star: #b45309; --code-bg: #f1f5f9; --ok: #15803d; --warn: #b45309;
+    --node: #eff6ff; --node-stroke: #93c5fd; --node-ext: #fef3c7; --node-ext-stroke: #fcd34d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1120; --surface: #111827; --surface-2: #1f2937; --border: #334155;
+      --text: #e5e7eb; --muted: #94a3b8; --accent: #60a5fa; --accent-soft: #1e3a5f;
+      --star: #fbbf24; --code-bg: #1f2937; --ok: #4ade80; --warn: #fbbf24;
+      --node: #172554; --node-stroke: #3b82f6; --node-ext: #422006; --node-ext-stroke: #b45309;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1120; --surface: #111827; --surface-2: #1f2937; --border: #334155;
+    --text: #e5e7eb; --muted: #94a3b8; --accent: #60a5fa; --accent-soft: #1e3a5f;
+    --star: #fbbf24; --code-bg: #1f2937; --ok: #4ade80; --warn: #fbbf24;
+    --node: #172554; --node-stroke: #3b82f6; --node-ext: #422006; --node-ext-stroke: #b45309;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 24px 16px 80px; }
+  header.top { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 8px; }
+  h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 6px; }
+  h2 { font-size: 1.4rem; margin: 40px 0 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 1.1rem; margin: 26px 0 6px; }
+  h4 { font-size: 1rem; margin: 18px 0 4px; }
+  p, li { max-width: 72ch; }
+  .muted { color: var(--muted); }
+  a { color: var(--accent); }
+  code, kbd { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.9em;
+    background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; }
+  pre { background: var(--code-bg); padding: 12px 14px; border-radius: 8px; overflow-x: auto; font-size: 0.88rem; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin: 12px 0; }
+  .callout { border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .placeholder { border: 2px dashed var(--warn); border-radius: 6px; padding: 2px 6px; font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; margin: 10px 0; }
+  .table-scroll { overflow-x: auto; }
+  th, td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: var(--surface-2); }
+  nav.toc { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin: 16px 0; }
+  nav.toc ol { margin: 4px 0; padding-left: 22px; }
+  nav.toc li { margin: 2px 0; }
+  nav.toc > ol > li { font-weight: 600; }
+  nav.toc > ol > li li { font-weight: 400; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+  button { font: inherit; font-size: 0.9rem; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+  details.qa { border: 1px solid var(--border); border-radius: 10px; margin: 8px 0; background: var(--surface); }
+  details.qa > summary { cursor: pointer; padding: 10px 14px; font-weight: 600; list-style: none; display: flex; gap: 8px; }
+  details.qa > summary::-webkit-details-marker { display: none; }
+  details.qa > summary::before { content: "▸"; color: var(--muted); flex: none; transition: transform .15s; }
+  details.qa[open] > summary::before { transform: rotate(90deg); }
+  details.qa > div { padding: 0 14px 12px 34px; }
+  details.qa > div p:first-child { margin-top: 0; }
+  .star { color: var(--star); font-weight: 700; }
+  .qnum { color: var(--muted); font-weight: 500; flex: none; }
+  .hidden { display: none !important; }
+  figure { margin: 12px 0; }
+  figcaption { font-size: 0.88rem; color: var(--muted); }
+  svg.diagram { width: 100%; height: auto; display: block; }
+  svg .box { fill: var(--node); stroke: var(--node-stroke); stroke-width: 1.5; }
+  svg .ext { fill: var(--node-ext); stroke: var(--node-ext-stroke); stroke-width: 1.5; }
+  svg .lbl { fill: var(--text); font: 600 13px system-ui, sans-serif; }
+  svg .sub { fill: var(--muted); font: 11px system-ui, sans-serif; }
+  svg .arrow { stroke: var(--muted); stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+  svg .arrowhead { fill: var(--muted); }
+  svg .group { fill: none; stroke: var(--border); stroke-dasharray: 5 4; }
+  svg .glabel { fill: var(--muted); font: 600 11px system-ui, sans-serif; letter-spacing: .04em; }
+  ol.flow li { margin: 4px 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) {
+    body { font-size: 15px; }
+    h1 { font-size: 1.5rem; }
+    .grid2 { grid-template-columns: 1fr; }
+    details.qa > div { padding-left: 16px; }
+  }
+  @media print {
+    .toolbar, nav.toc { display: none; }
+    details.qa > div { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>AutoPlanner: viva prep</h1>
+  <p class="muted">Everything here is taken from the code, <code>SPEC.md</code> (v0.12), <code>PLAN.md</code> and the git history (15–27 Oct 2026). Answers are written so you can say them out loud. Questions marked <span class="star">★</span> are the 10 most likely.</p>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#part-a">Part A: understand the project</a>
+      <ol>
+        <li><a href="#pitch">One-minute pitch</a></li>
+        <li><a href="#architecture">Architecture and request flow</a></li>
+        <li><a href="#features">How the main features are built</a></li>
+        <li><a href="#data-algo">Data model and the key algorithms</a></li>
+        <li><a href="#stack">Tech stack, and one alternative each</a></li>
+        <li><a href="#sdd">Spec-driven development</a></li>
+        <li><a href="#testing">Testing, CI and deployment</a></li>
+        <li><a href="#problems">Real problems and how they were fixed</a></li>
+        <li><a href="#limits">Limitations and next steps</a></li>
+      </ol>
+    </li>
+    <li><a href="#part-b">Part B: question bank (38 questions)</a></li>
+  </ol>
+</nav>
+
+<!-- =========================================================== PART A -->
+<h2 id="part-a">Part A: understand the project</h2>
+
+<h3 id="pitch">1. One-minute pitch</h3>
+<div class="card">
+  <p><strong>Problem.</strong> Students juggle classes, labs and many deadlines, and their plan breaks the moment one study session doesn't happen. Re-planning by hand is tedious, so they stop planning.</p>
+  <p><strong>Who it's for.</strong> Students like me at IISc, whose assignments live in Microsoft Teams. Visitors and recruiters can try a realistic demo week with no sign-up.</p>
+  <p><strong>What it does.</strong> You add classes, deadlines and preferences. An optimizer (Google OR-Tools CP-SAT) places 30-minute study blocks so that every deadline is met, demanding work lands in your focus hours, and big tasks are split into chunks. Mark a block "not done" and the rest of the week is replanned at once. If the work can't all fit, it says exactly how many hours don't fit and offers <em>checked</em> fixes: extend one deadline, or cut hours.</p>
+  <p><strong>What stands out.</strong></p>
+  <ul>
+    <li>A real optimizer, benchmarked against a greedy earliest-deadline-first baseline on 90 generated workloads. It met 1725 deadlines vs 1674, with 782 h of lateness vs 1165 h and 3089 preference violations vs 4479.</li>
+    <li>Teams import from a screenshot. You press Windows+Shift+S then Ctrl+V; Gemini reads it, with Tesseract OCR as the fallback; you review everything before it's saved.</li>
+    <li>Built spec-first: 68 requirements and 48 pass/fail acceptance criteria, with every change logged.</li>
+    <li>Free to run, no login, and private 256-bit planner links.</li>
+  </ul>
+  <p><strong>Live:</strong> <span class="placeholder">https://&lt;your-app&gt;.streamlit.app/?demo=1</span> <span class="muted">(fill in your URL; it isn't recorded in the repo)</span> · <strong>Code:</strong> github.com/ShubhamMeghani/autoplanner</p>
+</div>
+
+<h3 id="architecture">2. Architecture and request flow</h3>
+<figure>
+<svg class="diagram" viewBox="0 0 860 480" role="img" aria-labelledby="arch-title arch-desc">
+  <title id="arch-title">AutoPlanner architecture</title>
+  <desc id="arch-desc">The browser talks to a Streamlit app. streamlit_app.py routes to the UI views, which call PlannerService. PlannerService builds the problem, solves it with CP-SAT, diagnoses infeasibility, validates the plan and saves changes through the storage layer to Supabase Postgres, or to an in-memory store in demo mode. The import pipeline calls Gemini or Tesseract. GitHub Actions runs CI and a Supabase keep-alive.</desc>
+  <defs>
+    <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrowhead" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+  </defs>
+  <!-- browser -->
+  <rect class="box" x="20" y="20" width="200" height="56" rx="10"/>
+  <text class="lbl" x="120" y="44" text-anchor="middle">Browser</text>
+  <text class="sub" x="120" y="62" text-anchor="middle">calendar · paste box (JS)</text>
+  <!-- streamlit cloud group -->
+  <rect class="group" x="250" y="8" width="420" height="452" rx="12"/>
+  <text class="glabel" x="262" y="26">STREAMLIT COMMUNITY CLOUD (Python 3.13)</text>
+  <rect class="box" x="270" y="36" width="380" height="50" rx="10"/>
+  <text class="lbl" x="460" y="58" text-anchor="middle">streamlit_app.py: routing</text>
+  <text class="sub" x="460" y="75" text-anchor="middle">/ → landing · ?demo=1 → demo · ?p=&lt;id&gt; → planner</text>
+  <rect class="box" x="270" y="104" width="380" height="50" rx="10"/>
+  <text class="lbl" x="460" y="126" text-anchor="middle">ui/: calendar · tasks · import · settings · results</text>
+  <text class="sub" x="460" y="143" text-anchor="middle">run_action(): spinner, plain errors, nothing half-saved</text>
+  <rect class="box" x="270" y="172" width="380" height="58" rx="10"/>
+  <text class="lbl" x="460" y="194" text-anchor="middle">planner.py: PlannerService</text>
+  <text class="sub" x="460" y="211" text-anchor="middle">change → build_problem → make_plan → validate → save</text>
+  <text class="sub" x="460" y="224" text-anchor="middle">re-solves only when the input hash changes</text>
+  <rect class="box" x="270" y="250" width="118" height="62" rx="10"/>
+  <text class="lbl" x="329" y="273" text-anchor="middle">solver.py</text>
+  <text class="sub" x="329" y="290" text-anchor="middle">CP-SAT,</text>
+  <text class="sub" x="329" y="303" text-anchor="middle">goals in order</text>
+  <rect class="box" x="401" y="250" width="118" height="62" rx="10"/>
+  <text class="lbl" x="460" y="273" text-anchor="middle">diagnose.py</text>
+  <text class="sub" x="460" y="290" text-anchor="middle">shortfall H,</text>
+  <text class="sub" x="460" y="303" text-anchor="middle">checked fixes</text>
+  <rect class="box" x="532" y="250" width="118" height="62" rx="10"/>
+  <text class="lbl" x="591" y="273" text-anchor="middle">validate.py</text>
+  <text class="sub" x="591" y="290" text-anchor="middle">independent</text>
+  <text class="sub" x="591" y="303" text-anchor="middle">rule checks</text>
+  <rect class="box" x="270" y="330" width="185" height="56" rx="10"/>
+  <text class="lbl" x="362" y="354" text-anchor="middle">importers/</text>
+  <text class="sub" x="362" y="371" text-anchor="middle">dates · parser · pipeline</text>
+  <rect class="box" x="465" y="330" width="185" height="56" rx="10"/>
+  <text class="lbl" x="557" y="354" text-anchor="middle">storage.py</text>
+  <text class="sub" x="557" y="371" text-anchor="middle">SupabaseRepo · MemoryRepo</text>
+  <rect class="box" x="270" y="400" width="380" height="44" rx="10"/>
+  <text class="lbl" x="460" y="420" text-anchor="middle">learning.py · ics_export.py · demo.py · baseline.py</text>
+  <text class="sub" x="460" y="436" text-anchor="middle">estimate factors · .ics · demo week · greedy fallback</text>
+  <!-- external: import engines and CI on the left, the database on the right -->
+  <rect class="ext" x="20" y="292" width="200" height="50" rx="10"/>
+  <text class="lbl" x="120" y="314" text-anchor="middle">Gemini API</text>
+  <text class="sub" x="120" y="331" text-anchor="middle">reads screenshots</text>
+  <rect class="ext" x="20" y="352" width="200" height="50" rx="10"/>
+  <text class="lbl" x="120" y="374" text-anchor="middle">Tesseract OCR</text>
+  <text class="sub" x="120" y="391" text-anchor="middle">fallback (packages.txt)</text>
+  <rect class="ext" x="20" y="412" width="200" height="44" rx="10"/>
+  <text class="lbl" x="120" y="431" text-anchor="middle">GitHub Actions</text>
+  <text class="sub" x="120" y="447" text-anchor="middle">CI (pytest) · keep-alive ping</text>
+  <rect class="ext" x="690" y="330" width="155" height="56" rx="10"/>
+  <text class="lbl" x="767" y="352" text-anchor="middle">Supabase Postgres</text>
+  <text class="sub" x="767" y="369" text-anchor="middle">5 tables, RLS on</text>
+  <!-- arrows -->
+  <path class="arrow" d="M220,48 L268,60"/>
+  <path class="arrow" d="M460,86 L460,102"/>
+  <path class="arrow" d="M460,154 L460,170"/>
+  <path class="arrow" d="M329,230 L329,248"/>
+  <path class="arrow" d="M460,230 L460,248"/>
+  <path class="arrow" d="M591,230 L591,248"/>
+  <path class="arrow" d="M270,140 C238,160 238,320 268,348"/>
+  <path class="arrow" d="M650,205 C705,220 705,330 652,345"/>
+  <path class="arrow" d="M270,342 L222,322"/>
+  <path class="arrow" d="M270,372 L222,377"/>
+  <path class="arrow" d="M650,358 L688,358"/>
+  <path class="arrow" d="M220,446 C420,474 700,470 767,388"/>
+</svg>
+<figcaption>The browser runs a Streamlit app. Views call <code>PlannerService</code>, which plans with CP-SAT, checks every plan with an independent validator, and saves through a repository: Supabase in production, an in-memory store in the demo and the tests.</figcaption>
+</figure>
+
+<h4>Flow 1: marking a block "Not done"</h4>
+<ol class="flow">
+  <li><strong>Route.</strong> <code>streamlit_app.main()</code> sees <code>?p=&lt;id&gt;</code>. <code>planner_route()</code> checks the ID against <code>^[A-Za-z0-9_-]{43}$</code> and that it exists, then renders <code>planner_page()</code> with <code>PlannerService(SupabaseRepo, id)</code>.</li>
+  <li><strong>Click.</strong> The FullCalendar component returns <code>eventClick</code>. <code>calendar_view.apply_click()</code> selects the block once (repeat reruns are ignored) and asks the page to scroll to the highlighted panel.</li>
+  <li><strong>Handler.</strong> "Not done" calls <code>run_action(service.mark_not_done)</code>, which shows a spinner and turns any error into a plain message.</li>
+  <li><strong>Module.</strong> <code>PlannerService.change()</code> applies the pure state change <code>planner.mark_not_done()</code> (the block's unfinished minutes return to its task), refreshes overdue tasks, then <code>_commit()</code>:
+    <ul>
+      <li><code>build_problem()</code> builds the 30-minute grid from now;</li>
+      <li><code>make_plan()</code> solves strict CP-SAT, starting from a hint plan. If that is proven infeasible it runs <code>diagnose()</code>; if time runs out it uses the greedy plan;</li>
+      <li><code>validate()</code> checks the result with the rule set for its plan type.</li>
+    </ul>
+  </li>
+  <li><strong>Database.</strong> <code>storage.save_changes()</code> writes the difference: new and changed rows first, then deletions, and the plan metadata (including the input hash) last. If any write fails, the next load notices the stale hash and replans.</li>
+  <li><strong>Response.</strong> The page reruns. The calendar gets a new key (<code>calendar-&lt;plan_version&gt;</code>) and shows the new plan.</li>
+</ol>
+
+<h4>Flow 2: pasting a Teams screenshot</h4>
+<ol class="flow">
+  <li><strong>Browser.</strong> The paste box (<code>ui/clipboard_paste.py</code>, a Streamlit components-v2 widget) is <code>contenteditable</code>, so Ctrl+V fires a real <code>paste</code> event without any clipboard permission. The JavaScript reads the image, checks its type and size, and sends it once as a data URL.</li>
+  <li><strong>Handler.</strong> <code>import_view.pasted_screenshot()</code> → <code>read_pasted()</code> → <code>decode_pasted()</code>, which accepts only PNG, JPEG or WebP, valid base64, and ≤ 10 MB, and checks it really is an image. Then the same <code>_read()</code> runs as for uploads.</li>
+  <li><strong>Service.</strong> <code>pipeline.import_screenshots()</code> first tries Gemini: inline image bytes, a fixed JSON schema, and the due text copied <em>verbatim</em>. If there's no key, an error, a timeout, bad JSON or zero rows, it falls back to Tesseract and the rule-based parser. <code>dates.resolve_due()</code> turns "Due tomorrow at 11:59 PM" into an IST deadline, with a flag.</li>
+  <li><strong>Response.</strong> An editable review table: problem rows first, and completed, duplicate or past rows unticked. Nothing is saved until "Add selected tasks", which goes through <code>service.change()</code> and replans. The image is never stored.</li>
+</ol>
+
+<h3 id="features">3. How the main features are built</h3>
+<div class="table-scroll">
+<table>
+  <tr><th>Feature</th><th>Where</th><th>How</th></tr>
+  <tr><td>Scheduling</td><td><code>timegrid.py</code>, <code>solver.py</code></td><td>One Boolean per (task, 30-minute slot). The rules are hard constraints, and the goals are solved one after another, each with a time cap.</td></tr>
+  <tr><td>Replanning</td><td><code>planner.py</code></td><td>Pure state changes (done, not done, complete, extend, cut, can't do) go through change → plan → validate → save. Past and done blocks are frozen.</td></tr>
+  <tr><td>When it doesn't fit</td><td><code>diagnose.py</code></td><td>The exact minimum shortfall H, up to 3 extend options and a cut option. Every option is re-solved before it's shown. 15 s budget.</td></tr>
+  <tr><td>Safety net</td><td><code>validate.py</code></td><td>An independent check of every plan, from datetimes rather than solver variables. Base rules plus a rule set per plan type.</td></tr>
+  <tr><td>Learning</td><td><code>learning.py</code></td><td>A per-type factor from <em>confirmed</em> time only. New estimates are suggested, and you can override them.</td></tr>
+  <tr><td>Import</td><td><code>importers/*</code>, <code>ui/import_view.py</code>, <code>ui/clipboard_paste.py</code></td><td>Gemini, then the Tesseract fallback; local date resolution; a review table; a rate limit (20 calls per planner per day, 10 per demo session).</td></tr>
+  <tr><td>Calendar</td><td><code>ui/calendar_view.py</code></td><td><code>streamlit-calendar</code> (FullCalendar), given IST wall-clock times in UTC mode, so it shows IST in any browser. Opens 2 days back.</td></tr>
+  <tr><td>Export</td><td><code>ics_export.py</code></td><td><code>icalendar</code>: one event per future block, TZID Asia/Kolkata, a stable UID <code>&lt;block-id&gt;@autoplanner</code>.</td></tr>
+  <tr><td>Storage</td><td><code>storage.py</code>, <code>db/schema.sql</code></td><td>A repository interface. Supabase in production (server-side secret key); <code>MemoryRepo</code> for the demo and the tests.</td></tr>
+  <tr><td>Demo</td><td><code>demo.py</code></td><td>An IISc-style week dated relative to today: 11 classes and labs a week, 8 open tasks, 4 completed tasks, and 5 unconfirmed past blocks to try. Session-only, so nothing is saved.</td></tr>
+  <tr><td>Benchmark</td><td><code>bench/*</code></td><td>90 seeded workloads, optimizer vs greedy EDF, CSV + report + chart.</td></tr>
+</table>
+</div>
+
+<h3 id="data-algo">4. Data model and the key algorithms</h3>
+<div class="grid2">
+  <div class="card">
+    <h4>Tables (<code>db/schema.sql</code>)</h4>
+    <ul>
+      <li><code>planners</code>: id (43-character token), prefs jsonb (the plan metadata lives in <code>prefs._meta</code>)</li>
+      <li><code>events</code>: class, lab, other or blocked; one-off <em>or</em> weekly</li>
+      <li><code>tasks</code>: type, raw and used estimate, deadline, demanding, status, actual hours, <code>learning_eligible</code></li>
+      <li><code>blocks</code>: start, end, status (planned, done, not_done or skipped), actual minutes, plan version</li>
+      <li><code>import_log</code>: Gemini and Tesseract calls, for the daily limit</li>
+    </ul>
+    <p class="muted">Every table has row-level security enabled and no anon policies. Everything belonging to a planner is deleted with it (ON DELETE CASCADE).</p>
+  </div>
+  <div class="card">
+    <h4>Scheduling model (<code>solver.py</code>)</h4>
+    <ul>
+      <li><strong>Grid:</strong> 30-minute slots from now (rounded up) to midnight at the end of the horizon (default 7 days, max 14), in IST.</li>
+      <li><strong>Hard rules:</strong> only free slots; one task per slot; all work before its deadline; runs ≤ the max block; blocks ≥ min(min block, the work); the daily cap, counting work already done today.</li>
+      <li><strong>Goals, in order:</strong> demanding work in focus windows, then fewer blocks, then earlier days (then stability, on a replan).</li>
+      <li><strong>Modes:</strong> strict, minimum shortfall (diagnosis), minimum lateness (benchmark).</li>
+    </ul>
+  </div>
+</div>
+<h4>Worked example: "can't fit everything" (from <code>tests/test_diagnose.py</code>)</h4>
+<div class="card">
+  <p>It's <strong>Wed 14 Oct, 10:00</strong>, with the default preferences (day 08:00–23:00, max 8 h of work per day). Task A needs <strong>6 h by 18:00 today</strong> and task B needs <strong>5 h by 23:00 today</strong>. That's 11 h of work, but today allows only 8 h.</p>
+  <ol>
+    <li>Strict CP-SAT is <strong>proven infeasible</strong>.</li>
+    <li>The minimum-shortfall model gives <strong>H = 3.0 h</strong> that can't be placed. One optimal split is A 2 h and B 1 h.</li>
+    <li><strong>Cut option:</strong> remove exactly that shortfall, re-solve strictly, and confirm it fits before it's shown.</li>
+    <li><strong>Extend options:</strong> for each task, relax only its deadline and minimise its finish time. Both come out as <strong>Thu 15 Oct 11:30</strong>, because tomorrow from 08:00 the remaining 3 h needs a short gap after a 2-hour run. Each option is then re-solved to confirm it.</li>
+    <li>The UI shows "3 h don't fit" with an Apply button for each option. Applying one replans the week.</li>
+  </ol>
+</div>
+<div class="grid2">
+  <div class="card">
+    <h4>Pro-rata share (R17, D-16)</h4>
+    <p>A task due after the horizon gets <code>⌈remaining × horizon ÷ time to deadline⌉</code> slots, due at the horizon end. In the test, 10 h due in 14 days with a 7-day plan from Wed 10:00 gives exactly <strong>5 h</strong> this week.</p>
+  </div>
+  <div class="card">
+    <h4>Learning (R37, R38)</h4>
+    <p><code>factor = 1 + n/(n+2) × (r − 1)</code>, clamped to [0.5, 2.5], over the last 10 confirmed tasks of a type. Three lab reports estimated at 2 h that took 3 h give r = 1.5 and factor = <strong>1.3</strong>, so a new 2 h estimate becomes 2.6, rounded to <strong>2.5 h</strong>.</p>
+  </div>
+</div>
+
+<h3 id="stack">5. Tech stack, and one alternative each</h3>
+<div class="table-scroll">
+<table>
+  <tr><th>Choice</th><th>Why</th><th>Alternative considered</th></tr>
+  <tr><td>Python 3.13 + Streamlit 1.66</td><td>One language end to end; free hosting on Streamlit Community Cloud; fast to build in a 3-day budget.</td><td>FastAPI + React: more control over the UI, but much more work and paid hosting.</td></tr>
+  <tr><td>OR-Tools CP-SAT 9.15</td><td>Handles Boolean slot models, sliding-window and implication constraints well; solving goals one after another is easy; free.</td><td>A MILP solver (PuLP/CBC), or a pure greedy heuristic, which I benchmarked against.</td></tr>
+  <tr><td>Supabase Postgres (free)</td><td>Real Postgres with row-level security and a REST client. Streamlit Cloud's disk is temporary, so SQLite wouldn't persist.</td><td>Firebase / Firestore: NoSQL, less natural for the relational tasks → blocks model.</td></tr>
+  <tr><td>Gemini (<code>google-genai</code>)</td><td>A free tier, vision, and a JSON response schema. The model is a secret (<code>GEMINI_MODEL</code>), so switching is a config change.</td><td>Another vision LLM API; or OCR only, which is less accurate on real screenshots.</td></tr>
+  <tr><td>Tesseract (<code>pytesseract</code>)</td><td>Offline fallback, installed on Cloud through <code>packages.txt</code>.</td><td>EasyOCR: heavier (PyTorch), and slow on a small free container.</td></tr>
+  <tr><td><code>streamlit-calendar</code> (FullCalendar)</td><td>Week and day views and click events out of the box.</td><td>Writing my own calendar component.</td></tr>
+  <tr><td>pytest + Streamlit AppTest, GitHub Actions</td><td>Unit, app-level and CI tests with no secrets or network.</td><td>Playwright end-to-end tests: closer to a real browser, but heavier to run in CI.</td></tr>
+</table>
+</div>
+
+<h3 id="sdd">6. Spec-driven development</h3>
+<ul>
+  <li><strong>SPEC.md</strong> came first, with no code. It has 68 requirements in EARS form ("WHEN … THE SYSTEM SHALL …"), 48 pass/fail acceptance criteria, Must/Should priorities, 23 recorded decisions and a changelog (v0.1 → v0.12).</li>
+  <li><strong>PLAN.md</strong> maps every task to its R# and AC# across 10 phases. Phase 1 was a live deployment check (Supabase write and read, plus one Gemini call) before any feature code. It has a traceability table with each AC's status.</li>
+  <li><strong>Feature commits</strong> cite <code>Refs: R#, AC-#</code>. Every spec change was committed separately as <code>docs(spec)</code>, almost always before the code that relied on it. The exception: R16's v0.6 change was logged right after the commit that introduced it.</li>
+</ul>
+<h4>Spec changes and why</h4>
+<ul>
+  <li><strong>v0.5, AC-3:</strong> the secret scan matched key <em>names</em> written in SPEC.md itself, so it could never pass. It now matches only real key formats (e.g. <code>sb_secret_</code> + 20 characters).</li>
+  <li><strong>v0.6 / v0.7, R16 (D-21):</strong> a single weighted objective couldn't be <em>proven</em> optimal within 10 s, which broke the speed criteria. The goals are now solved one after another, each with a time cap.</li>
+  <li><strong>v0.8, D-23:</strong> in the benchmark's lateness mode, the optimizer kept the min-block rule while greedy ignored it, so the optimizer lost on lateness (1281 h vs 1165 h). The rule became a soft goal in that mode, consistent with D-12. Result: 782 h vs 1165 h.</li>
+  <li><strong>v0.10 / v0.11:</strong> live testing found that the demo's past blocks were hidden behind "‹", so the calendar now opens 2 days back. New R68 added screenshot paste with Ctrl+V.</li>
+</ul>
+
+<h3 id="testing">7. Testing, CI and deployment</h3>
+<ul>
+  <li><strong>174 tests</strong> (pytest), covering: solver rules, the validator, diagnosis (exact H, verified options, the budget on a fake clock), learning, the date-resolver table, the parsers, the import pipeline, export, storage contracts, demo invariants and Streamlit <code>AppTest</code> UI flows.</li>
+  <li><strong>No network, no secrets:</strong> pytest-socket allows only localhost; Gemini is a fake client; storage is <code>MemoryRepo</code>. Synthetic Teams screenshots carry a marker chunk, and a test fails if a committed image lacks it. Real screenshots live only in the git-ignored <code>private/</code> folder.</li>
+  <li><strong>Benchmark as a test:</strong> <code>python -m bench.run_benchmark --seeds 10</code> checks AC-5 and AC-20 to AC-23. There were 0 validation failures, and the 20-task median was 1.51 s (p95 4.72 s).</li>
+  <li><strong>CI:</strong> GitHub Actions on <code>ubuntu-24.04</code>, Python 3.13, with Tesseract installed, running plain <code>pytest</code>. <strong>Keep-alive:</strong> a cron job every third day pings Supabase, cleaning the secrets first and printing only the HTTP status.</li>
+  <li><strong>Deployment:</strong> Streamlit Community Cloud from <code>main</code> (Python 3.13); <code>packages.txt</code> installs Tesseract. Secrets go only in the Cloud secrets box, <code>.streamlit/secrets.toml</code> (git-ignored) and GitHub encrypted secrets. A log scrubber removes keys and planner IDs from logs, and a test scans tracked files for real key formats.</li>
+  <li><strong>Live checks</strong> (owner, 16 Oct): the demo, click-to-scroll, done and not done, overload, and a Brave clipboard paste that read a real Teams page correctly. AC-17 (3 real screenshots) and AC-40 (the anon-key test against the real database) haven't been run yet.</li>
+</ul>
+
+<h3 id="problems">8. Real problems and how they were fixed</h3>
+<div class="card">
+  <h4>1. The solver couldn't prove optimality in time</h4>
+  <p>One weighted objective made demo weeks hit the 10 s limit, which broke the speed targets. Profiling showed each goal alone proved in about a second, but not all three together. <strong>Fix:</strong> solve the goals one after another, with per-goal time caps once a plan exists. The demo median went from timing out at 10 s to about 0.85 s.</p>
+</div>
+<div class="card">
+  <h4>2. The starting hint made plans worse, and one setting crashed OR-Tools</h4>
+  <p>The greedy hint broke the min-block rule, so CP-SAT discarded it; one overloaded case came out at 733 h of lateness. Turning on <code>repair_hint</code> crashed the whole process (an OR-Tools 9.15 check failure with several workers). <strong>Fix:</strong> removed <code>repair_hint</code>; added <code>hint_plan()</code>, which places EDF work in whole runs that respect the block rules; and hinted <em>every</em> variable, not only the slots. The benchmark then passed every check.</p>
+</div>
+<div class="card">
+  <h4>3. CI failed before any test ran</h4>
+  <p><code>ModuleNotFoundError: No module named 'autoplanner'</code>. Locally I'd run <code>python -m pytest</code>, which adds the current folder to the import path; CI runs plain <code>pytest</code>. <strong>Fix:</strong> <code>pythonpath = ["."]</code> in <code>pyproject.toml</code>. I verified it the way CI runs: a fresh clone and a fresh virtual environment with only the requirements: 154 passed.</p>
+</div>
+<p class="muted">Others: Gemini's recommended model returned 503 on every image request, so it was switched through config; the keep-alive failed when a secret had a stray newline or quotes, so the secrets are cleaned first; the secret scan matched its own spec text.</p>
+
+<h3 id="limits">9. Limitations and next steps</h3>
+<div class="grid2">
+  <div class="card">
+    <h4>Limitations</h4>
+    <ul>
+      <li>No accounts: the link is the key, and the last write wins if two tabs edit.</li>
+      <li>The lower goals are near-optimal rather than proven. 30-task, 14-day weeks can take up to about 12 s.</li>
+      <li>Unconfirmed past blocks are assumed done (a deliberate decision, D-1).</li>
+      <li>The free tiers: Supabase pauses (hence the keep-alive), and Gemini's free tier may use the data it receives.</li>
+      <li>The calendar is cramped on phones (use the day view). IST only.</li>
+      <li>AC-17 (real-screenshot accuracy) and the AC-40 live security check are still to do.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Next</h4>
+    <ul>
+      <li>Run AC-17 and AC-40; rotate the API keys used during setup.</li>
+      <li>Optional login (Supabase Auth), with links kept for guests.</li>
+      <li>Solve in the background for big weeks; reuse the previous plan as a warm start.</li>
+      <li>Two-way Google Calendar sync instead of a one-way .ics file.</li>
+      <li>An automatic day view on phones; focus windows per weekday.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- =========================================================== PART B -->
+<h2 id="part-b">Part B: question bank</h2>
+<p class="muted">Tap a question to see a model answer. <span class="star">★</span> marks the 10 most likely.</p>
+<div class="toolbar" role="group" aria-label="Question controls">
+  <button type="button" id="expand">Expand all</button>
+  <button type="button" id="collapse">Collapse all</button>
+  <button type="button" id="stars" aria-pressed="false">Show ★ only</button>
+</div>
+
+<div id="questions">
+
+<h3>Product and users</h3>
+<details class="qa" data-star="1"><summary><span class="qnum">1</span><span class="star">★</span> What problem does AutoPlanner solve, and for whom?</summary><div>
+<p>Students lose their plan as soon as one study session slips, and re-planning by hand is tedious. AutoPlanner plans the week automatically around classes and deadlines, and replans instantly when something doesn't happen. It's built for students like me whose assignments are in Microsoft Teams, and anyone can try a demo week without signing up.</p></div></details>
+<details class="qa"><summary><span class="qnum">2</span> How is it different from a to-do app or Google Calendar?</summary><div>
+<p>Those store what <em>you</em> schedule. AutoPlanner <em>decides</em> when to work: it places blocks so every deadline is met, puts demanding work in your focus hours, splits big tasks, and replans when something slips. When the work can't fit, it tells you by how much and offers checked fixes. It exports to Google Calendar, so it complements your calendar rather than replacing it.</p></div></details>
+<details class="qa"><summary><span class="qnum">3</span> Why screenshots instead of connecting to Teams directly?</summary><div>
+<p>I tested the Microsoft Graph route: IISc requires admin consent for the assignment permissions, so a student can't use it. A screenshot works for everyone. Windows+Shift+S, then Ctrl+V into the paste box, then Gemini reads it, and you review the rows before anything is saved.</p></div></details>
+
+<h3>Spec-driven development and requirements</h3>
+<details class="qa" data-star="1"><summary><span class="qnum">4</span><span class="star">★</span> What is spec-driven development, and how did you apply it?</summary><div>
+<p>I wrote the specification before any code: SPEC.md has 68 EARS requirements and 48 pass/fail acceptance criteria, with Must/Should priorities. PLAN.md maps every task to its requirement and AC IDs, and its first phase was a live deployment check. Commits reference the IDs, and every change of direction became a logged spec change first. "Done" means the AC passes, not that it looks finished.</p></div></details>
+<details class="qa"><summary><span class="qnum">5</span> Why EARS format?</summary><div>
+<p>"WHEN trigger, THE SYSTEM SHALL response" forces every requirement to state when it applies and what observable behaviour is expected, which makes it testable. For example: "IF the hard model is proven infeasible, THEN THE SYSTEM SHALL show the banner with the exact shortfall and checked options" maps directly onto AC-10.</p></div></details>
+<details class="qa"><summary><span class="qnum">6</span> Give an example of a spec change during the build.</summary><div>
+<p>The benchmark's lateness check failed: 1281 h for the optimizer vs 1165 h for greedy. The cause was that the optimizer treated the min block length as a hard rule while the greedy baseline ignored it. Decision D-12 already said best-effort plans count short blocks rather than forbid them, so D-23 made the min block a soft goal in lateness mode. I logged it in v0.8 before changing the code, and the result became 782 h vs 1165 h. No AC target changed.</p></div></details>
+<details class="qa"><summary><span class="qnum">7</span> How do you know a requirement is done?</summary><div>
+<p>Each one has a pass/fail AC. Most are automated tests, and some are benchmark checks or live checks. PLAN.md's table records each AC's status and how it was verified. Where something hasn't been checked live, such as AC-17 or AC-40, it says so instead of claiming a pass.</p></div></details>
+
+<h3>Architecture and routing</h3>
+<details class="qa" data-star="1"><summary><span class="qnum">8</span><span class="star">★</span> Walk me through the architecture.</summary><div>
+<p>It's a Streamlit app. <code>streamlit_app.py</code> routes on query parameters, and views in <code>ui/</code> call a <code>PlannerService</code>. Every change goes through change → build the problem → solve with CP-SAT → diagnose if infeasible → validate independently → save. Storage is behind a repository interface: Supabase in production, in-memory for the demo and tests. Import is a separate pipeline (Gemini, Tesseract fallback, a local date resolver). GitHub Actions runs CI and a keep-alive.</p></div></details>
+<details class="qa"><summary><span class="qnum">9</span> How does routing work without login?</summary><div>
+<p>Query parameters. No parameters shows the landing page; <code>?demo=1</code> opens the demo with session-only data; <code>?p=&lt;id&gt;</code> opens a planner. The ID is checked against a strict 43-character pattern and then looked up. Malformed and unknown IDs get the identical "Planner not found" message, and no planner is ever created from a URL.</p></div></details>
+<details class="qa"><summary><span class="qnum">10</span> What exactly happens when I click "Not done"?</summary><div>
+<p>The calendar click selects the block, once. The button calls <code>run_action(service.mark_not_done)</code>. The service applies a pure state change, which returns the unfinished minutes to the task, then rebuilds the slot grid from now, solves, validates and saves. Past and done blocks stay frozen. The page reruns with a new calendar key, so the new plan shows immediately.</p></div></details>
+
+<h3>Features and code</h3>
+<details class="qa"><summary><span class="qnum">11</span> How does screenshot import work?</summary><div>
+<p>The image goes inline to Gemini with a fixed JSON schema: title, course, due text and status. Gemini copies the due text exactly; it doesn't interpret dates. If there's no key, an error, a timeout, bad JSON or zero rows, Tesseract reads the image instead, after grayscale, inverting dark themes, upscaling 2× and stretching contrast, and a rule-based parser extracts the rows. Then a review table: duplicates, completed and past rows are unticked, and problem rows come first.</p></div></details>
+<details class="qa"><summary><span class="qnum">12</span> How do you turn "Due tomorrow at 11:59 PM" into a date?</summary><div>
+<p>Locally, in <code>importers/dates.py</code>, relative to the screenshot date, which the user can change. It handles today and tomorrow, weekday names (the next one strictly after; the same weekday means next week, flagged ambiguous), month and day with the closest year, ISO and numeric dates, 12- and 24-hour times, and 23:59 when no time is given. Every result carries a flag (inferred, ambiguous or unresolved) that shows in the review table. A table test has 31 cases.</p></div></details>
+<details class="qa"><summary><span class="qnum">13</span> How does the app learn from your actual time?</summary><div>
+<p>When you complete a task, I store the actual hours, but it only counts for learning if all of its blocks were confirmed: done or not done, not just assumed. For each type, factor = 1 + n/(n+2)·(r − 1), clamped to [0.5, 2.5], over the last 10 tasks. With three labs that took 1.5× their estimate, the factor is 1.3, so a new 2 h lab estimate is suggested as 2.5 h, which you can override.</p></div></details>
+<details class="qa"><summary><span class="qnum">14</span> How did you handle time zones?</summary><div>
+<p>Everything is IST (Asia/Kolkata, which has no DST) internally and UTC in the database. The calendar is given IST wall-clock times in UTC mode, so it shows IST in any browser. The .ics file uses TZID Asia/Kolkata with a VTIMEZONE block, and a test checks that 21:00 IST becomes 15:30 UTC.</p></div></details>
+
+<h3>Database and algorithms</h3>
+<details class="qa" data-star="1"><summary><span class="qnum">15</span><span class="star">★</span> How does the scheduler work?</summary><div>
+<p>One Boolean per task and 30-minute slot. The hard constraints are:</p>
+<ul>
+  <li>only free slots, and at most one task per slot;</li>
+  <li>exactly the remaining work before each deadline;</li>
+  <li>a sliding window limits runs to the max block length;</li>
+  <li>start indicators force each block to the min length;</li>
+  <li>a daily cap, net of work already done today.</li>
+</ul>
+<p>Then the goals are solved one at a time: demanding work in focus windows, fewer blocks, then earlier days. Each goal's value is fixed before the next starts, each has a time cap, and the solver starts from a complete hint plan.</p></div></details>
+<details class="qa" data-star="1"><summary><span class="qnum">16</span><span class="star">★</span> What happens when the deadlines can't all be met?</summary><div>
+<p>Strict mode is proven infeasible. A minimum-shortfall model then finds the exact hours H that can't fit, and gives a best-effort plan. For fixes, it cuts exactly that shortfall, and for up to 3 tasks it relaxes one deadline and minimises that task's finish time. Every option is re-solved before it's shown. Example: 11 h due today with an 8 h daily cap gives H = 3 h, and extending either task to Thursday 11:30 makes it fit.</p></div></details>
+<details class="qa"><summary><span class="qnum">17</span> Why solve the goals one after another instead of as a weighted sum?</summary><div>
+<p>I started with a weighted sum. Each goal alone proved optimal in about a second, but the combined objective couldn't be proven within 10 s, so the demo hit the limit. Solving lexicographically, with the best value fixed between goals, gives true priority order and lets me cap the lower goals' time. The demo median went from 10 s to about 0.85 s.</p></div></details>
+<details class="qa"><summary><span class="qnum">18</span> Describe the data model.</summary><div>
+<p>Five Postgres tables:</p>
+<ul>
+  <li><code>planners</code>: a 43-character ID, plus prefs and plan metadata in jsonb;</li>
+  <li><code>events</code>: one-off or weekly;</li>
+  <li><code>tasks</code>: raw and used estimates, status, actual hours, learning eligibility;</li>
+  <li><code>blocks</code>: planned, done, not done or skipped, with actual minutes and a plan version;</li>
+  <li><code>import_log</code>: for the Gemini limit.</li>
+</ul>
+<p>Row-level security is on with no anon policies; children are deleted with their planner.</p></div></details>
+<details class="qa"><summary><span class="qnum">19</span> How do you avoid re-solving on every Streamlit rerun?</summary><div>
+<p>Streamlit reruns the script on every interaction. I store a hash of everything that affects the plan (preferences, events, tasks, and blocks with feedback) next to the plan. Loading compares the hash and only re-solves if it changed (R62). A test counts solver calls to prove that two page loads don't re-solve.</p></div></details>
+
+<h3>Security and privacy</h3>
+<details class="qa" data-star="1"><summary><span class="qnum">20</span><span class="star">★</span> There's no login. How is a planner private?</summary><div>
+<p>Each planner gets a 256-bit random ID from Python's <code>secrets</code> module (43 URL-safe characters), so it can't be guessed; the link works like a password, and the app warns you to bookmark it. The database is only reached from the server with the secret key. Row-level security blocks the public anon key, and every query is filtered by planner ID. The trade-off is that anyone holding the link can edit, which is accepted and documented (D-10).</p></div></details>
+<details class="qa"><summary><span class="qnum">21</span> How are secrets handled?</summary><div>
+<p>They live only in Streamlit secrets (the Cloud secrets box, or a git-ignored local file) and in GitHub encrypted secrets for the keep-alive. Code reads them through one accessor and never logs them. A log scrubber redacts key formats and planner IDs, a test scans every tracked file for real key formats, and the keep-alive masks its values and prints only the HTTP status.</p></div></details>
+<details class="qa"><summary><span class="qnum">22</span> What happens to the screenshots?</summary><div>
+<p>They're kept in memory only: sent inline to Gemini (not through the Files API), never written to disk, the database or logs, and the upload or paste widget is reset afterwards. A test checks that no image bytes or data URLs remain anywhere. The UI warns that screenshots go to Google Gemini; on the free tier Google may use them, so I suggest cropping to the assignment list.</p></div></details>
+
+<h3>Testing and CI</h3>
+<details class="qa" data-star="1"><summary><span class="qnum">23</span><span class="star">★</span> How did you test it?</summary><div>
+<p>174 pytest tests, run offline: unit tests for the solver rules, validator, diagnosis, learning, date resolver and parsers; pipeline tests with a fake Gemini client; storage contract tests; and Streamlit AppTest tests for UI flows such as error handling, delete planner and overload. The benchmark is a test too: 90 workloads with pass/fail checks. CI runs everything on every push.</p></div></details>
+<details class="qa"><summary><span class="qnum">24</span> How do you test a Streamlit UI?</summary><div>
+<p>Streamlit's AppTest runs the real script headlessly: setting query parameters, clicking buttons, typing text and checking the output. For example, I stub the solver to raise an exception and assert that the page shows a plain message, no traceback, and unchanged data. Custom components (the calendar and paste box) can't be clicked in AppTest, so their logic is in pure functions that I test directly. The pages were also rendered in a headless browser at desktop and phone widths, and the clicks were checked live.</p></div></details>
+<details class="qa"><summary><span class="qnum">25</span> How do you test Gemini and Tesseract without the network?</summary><div>
+<p>Gemini is a fake client that records calls, so I can assert that the image went inline and the Files API wasn't used. Tesseract runs for real in CI on synthetic screenshots: generated from fictional data with hand-written labels, and marked so a real screenshot can never pass as a fixture. Locally, pytest-socket blocks every connection except localhost.</p></div></details>
+<details class="qa"><summary><span class="qnum">26</span> Tell me about a bug CI caught.</summary><div>
+<p>CI failed with "No module named autoplanner" before any test ran. I'd been running <code>python -m pytest</code>, which adds the current folder to the import path, while CI ran plain <code>pytest</code>. I reproduced it exactly in a fresh clone and virtual environment, fixed it with pytest's <code>pythonpath</code> setting, then re-verified the same way.</p></div></details>
+
+<h3>Scalability and failure scenarios</h3>
+<details class="qa"><summary><span class="qnum">27</span> What if the solver runs out of time?</summary><div>
+<p>The solver has a 10 s limit. If it finds no plan and no proof of infeasibility, the app shows the greedy earliest-deadline-first plan with a banner and its counts of deadline misses and short blocks. Every plan, including the fallback, passes the independent validator before it's saved; if the validator ever failed, the previous plan would be kept.</p></div></details>
+<details class="qa"><summary><span class="qnum">28</span> What if Supabase is down or paused?</summary><div>
+<p>Storage errors become a plain "Storage is unavailable" message, and nothing is half-saved. Writes go new rows first and the plan metadata last, so a failure leaves a stale hash and the next load replans. The demo doesn't use Supabase at all, so it keeps working. A keep-alive job every third day stops the free project pausing.</p></div></details>
+<details class="qa"><summary><span class="qnum">29</span> How would this scale to many users?</summary><div>
+<p>Each solve is independent and small (a week of 30-minute slots), so it scales horizontally. The bottleneck is CPU on the free container: 30-task, 14-day weeks take up to about 12 s. Next steps would be solving in a background worker, reusing the previous plan as a warm start, a paid tier or a separate solver service, and connection pooling for Postgres.</p></div></details>
+
+<h3>Deployment and cost</h3>
+<details class="qa"><summary><span class="qnum">30</span> How is it deployed, and what does it cost?</summary><div>
+<p>Nothing: it uses free tiers only (SPEC constraint C1). Streamlit Community Cloud deploys from <code>main</code> on Python 3.13, with Tesseract installed through <code>packages.txt</code>. Supabase's free Postgres, Gemini's free tier and GitHub Actions cover the rest. Phase 1 of the plan was deploying a smoke page that proved Supabase and Gemini worked on Cloud before any feature code.</p></div></details>
+<details class="qa"><summary><span class="qnum">31</span> Why a keep-alive workflow?</summary><div>
+<p>Free Supabase projects pause after about a week without activity, which would break every planner link. A GitHub Action reads one row every third day. It cleans the secrets first (a stray newline or quotes in a secret once caused "Malformed input to a URL function"), and fails clearly without printing values. One caveat: GitHub disables scheduled workflows in public repos after 60 days without activity, and the README explains how to re-enable it.</p></div></details>
+
+<h3>AI-assisted development</h3>
+<details class="qa" data-star="1"><summary><span class="qnum">32</span><span class="star">★</span> How did you use Claude Code, and how did you verify its work?</summary><div>
+<p>I used it as a pair programmer under a spec-first process. I set the product, stack and constraints, and I answered every open question myself (decisions D-1 to D-20). It drafted the spec, the plan, the code and the tests phase by phase, with one commit per phase. Verification didn't rely on trusting its output:</p>
+<ul>
+  <li>pass/fail ACs and 174 tests;</li>
+  <li>a benchmark with hard targets;</li>
+  <li>round trips against the real Supabase project;</li>
+  <li>reproducing CI in a fresh clone;</li>
+  <li>headless-browser screenshots;</li>
+  <li>my own live checks.</li>
+</ul></div></details>
+<details class="qa"><summary><span class="qnum">33</span> Give an example where the AI-generated work was wrong, and how it was caught.</summary><div>
+<p>A few. The first secret-scan criterion matched text in the spec itself, so it could never pass; that was caught when the scan ran. The solver's first hints made plans worse, and one setting crashed OR-Tools; the benchmark exposed both. The demo's past blocks were hidden off-screen; my live check found that. Each was fixed and, where the spec changed, logged.</p></div></details>
+<details class="qa"><summary><span class="qnum">34</span> What did you decide yourself, rather than delegate?</summary><div>
+<p>The product scope and the free-only stack; answers to the open questions (for example, unconfirmed blocks count as done but don't feed learning; the repo is public, so real screenshots never get committed); which requirements are Must vs Should; and all live testing. I also chose to keep honest statuses, for example marking AC-17 and AC-40 as not run rather than passed.</p></div></details>
+
+<h3>Trade-offs: "why not X?"</h3>
+<details class="qa" data-star="1"><summary><span class="qnum">35</span><span class="star">★</span> Why not just use a greedy algorithm?</summary><div>
+<p>I measured it. On 90 seeded workloads against greedy earliest-deadline-first, the optimizer met more deadlines (1725 vs 1674), had less total lateness (782 h vs 1165 h) and far fewer preference violations (3089 vs 4479). When everything fits, both meet every deadline, but the optimizer puts demanding work in focus hours (62–95 % fewer violations). The cost is solve time: a median of 1.5 s for 20 tasks, against near zero for greedy. Greedy remains the fallback.</p></div></details>
+<details class="qa"><summary><span class="qnum">36</span> Why Streamlit rather than a React front end with an API?</summary><div>
+<p>The budget was 3 days and free hosting. Streamlit gave me one language, free deployment and built-in widgets, so the time went into the scheduling and import logic. The costs are less control over the UI and a rerun-based model, which I handled with the input hash and custom components where needed (the calendar and paste box). For a larger product, I'd split out a FastAPI backend.</p></div></details>
+<details class="qa"><summary><span class="qnum">37</span> Why Supabase rather than SQLite?</summary><div>
+<p>Streamlit Cloud's file system is temporary, so SQLite data would be lost on restart. Supabase gives real Postgres for free, with row-level security and a REST client. The repository interface means the app doesn't depend on it: tests and the demo run on an in-memory store.</p></div></details>
+
+<h3>Future work</h3>
+<details class="qa" data-star="1"><summary><span class="qnum">38</span><span class="star">★</span> What's the biggest limitation, and what would you build next?</summary><div>
+<p>The biggest limitations are trust and reach: no accounts (the link is the key), and real-screenshot accuracy hasn't been measured yet (AC-17). Next I'd run AC-17 and the live security check, add optional Supabase Auth, move solving to a background worker for big weeks, add two-way Google Calendar sync, and switch phones to the day view automatically.</p></div></details>
+
+</div>
+
+<p class="muted" style="margin-top:40px">Source of truth: <code>SPEC.md</code>, <code>PLAN.md</code>, <code>README.md</code>, <code>bench/results/REPORT.md</code> and the git log. If anything here disagrees with them, they win.</p>
+</div>
+
+<script>
+  (function () {
+    var all = function () { return Array.prototype.slice.call(document.querySelectorAll("details.qa")); };
+    document.getElementById("expand").addEventListener("click", function () {
+      all().forEach(function (d) { if (!d.classList.contains("hidden")) d.open = true; });
+    });
+    document.getElementById("collapse").addEventListener("click", function () {
+      all().forEach(function (d) { d.open = false; });
+    });
+    var starBtn = document.getElementById("stars");
+    starBtn.addEventListener("click", function () {
+      var on = starBtn.getAttribute("aria-pressed") !== "true";
+      starBtn.setAttribute("aria-pressed", on ? "true" : "false");
+      starBtn.textContent = on ? "Show all questions" : "Show ★ only";
+      all().forEach(function (d) { d.classList.toggle("hidden", on && d.dataset.star !== "1"); });
+      document.querySelectorAll("#questions h3").forEach(function (h) {
+        var el = h.nextElementSibling, any = false;
+        while (el && el.tagName !== "H3") { if (el.matches("details.qa:not(.hidden)")) any = true; el = el.nextElementSibling; }
+        h.classList.toggle("hidden", on && !any);
+      });
+    });
+  })();
+</script>
+</body>
+</html>
